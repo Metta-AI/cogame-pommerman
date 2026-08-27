@@ -29,7 +29,15 @@ const
   MaxVerbRunes* = 8
   MaxTargetRunes* = 6
   MaxDirRunes* = 5
-  MaxDirectiveRunes* = 900
+  MaxDirectiveRunes* = 4000
+    ## The whole serialised `directive` replay record, INCLUDING the mirrored
+    ## observation. Sized from the worst case rather than by eye: a seat view
+    ## with the bomb pool full (MaxBombs) measures 3224 runes, and the record's
+    ## own fields plus a full-cap 100-rune `say` bring the whole record to
+    ## 3493. The design note's 900 was sized against the record WITHOUT the
+    ## view (~230 runes) and could never hold one, so every `say` was shrunk to
+    ## nothing and every view dropped; recorded as an errata in
+    ## docs/plans/2026-08-27-pommerman-design.md.
 
   SeatCount* = 4
     ## Four bombers, always, in every variant and in the certification

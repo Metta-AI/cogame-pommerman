@@ -283,7 +283,8 @@ suite "pommerman replay":
             directive.radio)
           writer.writeChat(state.frame, seat,
             directive.boundedDirectiveRecord(
-              turnIndex, seat, newJNull(), newJNull()))
+              turnIndex, seat, radioInJson(sim, seat),
+              engine.seatView(sim, seat, includeNotes = false)))
       discard state.advanceEpisodeFrame(sim, writer)
       discard state.maybeNextGame(sim, writer)
       inc state.frame
@@ -309,6 +310,10 @@ suite "pommerman replay":
     for directive in summary["directives"]:
       check directive["say"].getStr().validateUtf8() == -1
       check directive["say"].getStr().runeLen <= MaxSayRunes
+      ## The record carried a real observation, exactly as the shipped path
+      ## does -- and the `say` still came out at its full cap. A record whose
+      ## `say` is "" is a replay in which the model said nothing.
+      check directive["say"].getStr().runeLen == MaxSayRunes
     for order in summary["orders"]:
       check order["source"].getStr() == "llm"
     check summary["results"]["reason"].getStr() in

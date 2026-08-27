@@ -317,22 +317,24 @@ proc boundedDirectiveRecord*(
   radioIn: JsonNode,
   view: JsonNode
 ): string =
-  ## The serialized record, guaranteed <= MaxDirectiveRunes. `say` is the only
-  ## field that can grow, so it is the one that shrinks -- and the cut still
-  ## lands on a rune boundary. The SERIALIZED string is never sliced: that
-  ## would emit broken JSON, the exact failure the rune rule prevents.
+  ## The serialized record, guaranteed <= MaxDirectiveRunes. The cap is sized
+  ## to hold the mirrored observation AND a full-cap `say` (sim_types.nim), so
+  ## neither is shed in practice. If a record ever does overrun, the VIEW goes
+  ## first: it is re-derivable from the replay's own order records, while the
+  ## commander's `say` is the one thing in here that exists nowhere else -- it
+  ## is what the feed, tools/replay_summary.py and the spectator read. The
+  ## SERIALIZED string is never sliced: that would emit broken JSON, the exact
+  ## failure the rune rule prevents.
   var trimmed = directive
   var carriedView = view
   result = $trimmed.directiveRecord(turn, seat, radioIn, carriedView)
   var guard = 0
   while result.runeLen > MaxDirectiveRunes and guard < 24:
     inc guard
-    if trimmed.say.runeLen > 0:
-      trimmed.say = trimmed.say.truncateRunes(max(0, trimmed.say.runeLen - 16))
-    elif carriedView.kind != JNull:
-      ## The observation is the big field. A record still over its cap with an
-      ## empty `say` drops the view rather than emitting truncated JSON.
+    if carriedView.kind != JNull:
       carriedView = newJNull()
+    elif trimmed.say.runeLen > 0:
+      trimmed.say = trimmed.say.truncateRunes(max(0, trimmed.say.runeLen - 16))
     else:
       break
     result = $trimmed.directiveRecord(turn, seat, radioIn, carriedView)

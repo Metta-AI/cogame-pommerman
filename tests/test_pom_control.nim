@@ -359,6 +359,44 @@ suite "pommerman control and baselines":
       check record.runeLen <= MaxDirectiveRunes
       discard parseJson(record)
 
+    block fullCapSaySurvivesWithARealView:
+      ## The record an LLM seat really writes: episode.runTurnIfDue always
+      ## passes a REAL observation (decide.nim assigns lastView every turn), so
+      ## a record measured with `view = newJNull()` proves nothing about the
+      ## shipped path. A full-cap 100-rune `say` must reach the replay WITH the
+      ## view beside it -- an emptied `say` is a spectator seeing none of what
+      ## the model said, and the feed only emits a `say` event when it is
+      ## non-empty (broadcast.nim).
+      var engine = initDecisionEngine(sim.config)
+      var say = ""
+      for _ in 0 ..< MaxSayRunes:
+        say.add("\u{1F525}")
+      var spoken = previous
+      spoken.source = dsLlm
+      spoken.say = sanitizeSay(say)
+      check spoken.say.runeLen == MaxSayRunes
+      let view = engine.seatView(sim, 0, includeNotes = false)
+      check view.kind == JObject
+      let record = spoken.boundedDirectiveRecord(9, 0, %[3, 7], view)
+      check record.runeLen <= MaxDirectiveRunes
+      check record.validateUtf8() == -1
+      let parsed = parseJson(record)
+      check parsed["say"].getStr().runeLen == MaxSayRunes
+      check parsed["say"].getStr() == spoken.say
+      check parsed["view"].kind == JObject
+      check parsed["view"]["you"].getStr() == seatAliasName(0)
+      ## ...and with the bomb pool full, which is the widest observation the
+      ## rules can produce. The view may shed here; the `say` never may.
+      var crowded = sim
+      for index in 0 ..< MaxBombs:
+        discard crowded.addBomb(3, 9, 9, fuse = 8, blast = crowded.config.maxBlast)
+      let crowdedRecord = spoken.boundedDirectiveRecord(
+        9, 0, %[3, 7], engine.seatView(crowded, 0, includeNotes = false))
+      check crowdedRecord.runeLen <= MaxDirectiveRunes
+      let crowdedParsed = parseJson(crowdedRecord)
+      check crowdedParsed["say"].getStr().runeLen == MaxSayRunes
+      check crowdedParsed["view"].kind == JObject
+
     block replyByteCap:
       ## MaxReplyBytes is a BYTE budget: a rune cut there would admit up to
       ## 4 x 8192 bytes into parseJson.
