@@ -15,9 +15,15 @@
 /* The plate name must survive a 360px featured-match iframe: it grows into
    whatever room the plate has and ellipsises only when it genuinely runs out,
    never collapsing to a bare "..." . */
+/* `white-space: nowrap` is load-bearing, not decoration: without it the two
+   policy names WRAP to a second line that spills out of the scorebug band and
+   over the top of the board, and `text-overflow: ellipsis` never fires because
+   a wrapping box never overflows. The starter's own `.plate .team-name` sets
+   it for the same reason. */
 .plate-name {
   flex: 1 1 auto;
   min-width: 3.2em;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -153,25 +159,33 @@ button.beat-marker {
 }
 
 /* --- endcard columns and the per-bomber rows --------------------------- */
-/* Five columns, and the four numeric ones are sized for their HEADINGS
-   (KILLS / BOMBS / WOOD / RADIO) rather than for their digits: at
-   --hudscale 0.5 the words are what set the width, and a column narrower
-   than its own heading runs the words together. */
+/* The design note pins the header words -- Bomber | Kills | Bombs | Wood |
+   Radio -- and they are what set the column widths: the starter's endcard
+   panel is 215u wide because ITS headings were K / D / Clstr / Cap. Five
+   spelled-out words do not fit that, so the panel is widened here rather than
+   the words abbreviated. Only the first column ellipsises: it holds the
+   seat's alias and its REAL policy name, which is the one string that can be
+   arbitrarily long. */
+#endcard .ec-team { width: calc(272 * var(--u)); }
 .ec-thead, .ec-trow {
   display: grid;
-  grid-template-columns: 1.5fr 0.85fr 0.95fr 0.8fr 0.95fr;
-  gap: calc(5 * var(--u));
-  font-size: calc(8 * var(--u));
+  grid-template-columns: 1.3fr 0.8fr 0.85fr 0.75fr 0.85fr;
+  gap: calc(4 * var(--u));
   white-space: nowrap;
 }
-.ec-thead span, .ec-trow span { overflow: hidden; text-overflow: ellipsis; }
+.ec-thead span:first-child,
+.ec-trow span:first-child { overflow: hidden; text-overflow: ellipsis; }
 .ec-thead {
+  font-size: calc(7.5 * var(--u));
   color: var(--paper-dim);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.03em;
   margin-top: calc(4 * var(--u));
 }
-.ec-trow { font-variant-numeric: tabular-nums; }
+.ec-trow {
+  font-size: calc(9 * var(--u));
+  font-variant-numeric: tabular-nums;
+}
 .ec-tname {
   font-family: var(--pixfont);
   font-size: calc(14 * var(--u));

@@ -233,6 +233,12 @@ suite "pommerman viewer":
     check ".plate-name {" in page
     check "flex: 1 1 auto;" in page
     check "min-width: 3.2em;" in page
+    ## without nowrap the two policy names WRAP out of the scorebug band and
+    ## over the board, and text-overflow never fires
+    let plateRule = page[page.find(".plate-name {") ..<
+      page.find("}", page.find(".plate-name {"))]
+    check "white-space: nowrap;" in plateRule
+    check "text-overflow: ellipsis;" in plateRule
     check "#stage.tiny .plate .bchip i" in page
     check "var digits = tiny ? 14 :" in coreText()      ## bomb fuse digit
     check "var digits = tiny ? 12 :" in coreText()      ## radio digit
