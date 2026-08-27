@@ -273,6 +273,30 @@ suite "pommerman viewer":
         checkpoint("a deleted ctf draw call survived: " & name)
         fail()
 
+  test "the renderer fixture measures REAL canvas text, not just DOM":
+    ## checklist item 15: `canvas_text.total: 0` "means the check covered
+    ## nothing and is not evidence of anything". The shipped page hands #board
+    ## to a Worker with transferControlToOffscreen, so the harness's
+    ## main-thread measurer sees none of the board's draws; the fixture has to
+    ## run the SAME renderer on a canvas it owns, or its --strict-text-bounds
+    ## step gates a number that is always zero.
+    let fixture = readRepoFile("tools/ci/renderer_fixture.html")
+    check "src=\"./broadcast_core.js\"" in fixture
+    check "src=\"./wire_constants.js\"" in fixture
+    check "window.BroadcastCore.create(" in fixture
+    check "c.ingest(JSON.stringify(canvasFrame(base, width)))" in fixture
+    ## its own measurer, its own gate, and the merged report the harness reads
+    check "proto[name] = function (text, x, y) {" in fixture
+    check "window.__coworldTextBounds = {" in fixture
+    check "if (drawn.total < 1) {" in fixture
+    check "if (drawn.outside > 0) {" in fixture
+    ## driven at every width the page relayouts at, and the full-cap string is
+    ## still asserted to BE full-cap
+    for width in ["360", "640", "1280"]:
+      checkpoint(width)
+      check width in fixture
+    check "CAP_SAY_RUNES = 100" in fixture
+
   test "the static viewer files all come from ONE starter":
     ## Splicing one starter's shell onto another's emscripten link flags
     ## (MODULARIZE/EXPORT_NAME vs an onRuntimeInitialized bootstrap) deadlocks

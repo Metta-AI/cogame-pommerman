@@ -452,11 +452,20 @@ jobs:
       # replay plays scripted and a scripted seat emits no `say` at all -- the
       # smoke replay can never exercise the feed's text path (the cogchemists
       # 2026-08-24 scar). The fixture LOADS THE SHIPPED
-      # dist/static-replay-viewer/index.html in an iframe and shims only the
-      # wasm entry -- it does not re-implement the drawing (the
-      # particle-worlds 2026-08-26 scar) -- driving the real page with a
-      # full-cap 100-rune `say` on all four seats at several canvas widths
-      # including 360 px.
+      # dist/static-replay-viewer/index.html in an iframe and drives the real
+      # page with a full-cap 100-rune `say` on all four seats at 360, 640 and
+      # 1280 px -- it does not re-implement the drawing (the particle-worlds
+      # 2026-08-26 scar).
+      #
+      # It also runs the shipped client/broadcast_core.js on a canvas the
+      # FIXTURE owns and hands it a frame built to hurt (bombers on the top and
+      # bottom rows, bombs in every corner, the whole fuse ladder). That is the
+      # only place --strict-text-bounds can bite: the page's own #board is an
+      # OffscreenCanvas in a Worker, so the harness's main-thread measurer
+      # reports `canvas_text: total 0` for the step above, which checklist
+      # item 15 calls "not evidence of anything". Here the number is real, and
+      # the fixture fails itself (data-replay-error) if it ever measures zero
+      # draws or a draw that crossed the board edge.
       - name: Worst-case renderer fixture (full-cap seat lines)
         run: |
           set -euo pipefail

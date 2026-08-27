@@ -6,8 +6,13 @@
 <style>
   html, body { margin: 0; height: 100%; background: #120d09; color: #f2e8d8;
     font: 12px system-ui; overflow: hidden; }
-  #host { position: absolute; inset: 0 0 24px 0; }
+  #host { position: absolute; inset: 0 264px 24px 0; }
   iframe { border: 0; display: block; }
+  #boardhost { position: absolute; top: 0; right: 0; width: 256px;
+    padding: 4px; }
+  #boardhost canvas { width: 248px; height: 248px; display: block;
+    background: #0b0704; }
+  #boardhost div { font: 10px system-ui; padding: 2px 0; }
   #report { position: absolute; left: 0; right: 0; bottom: 0; height: 24px;
     line-height: 24px; padding: 0 8px; white-space: nowrap;
     overflow: hidden; background: #0b0704; }
@@ -15,7 +20,13 @@
 </head>
 <body>
 <div id="host"></div>
+<div id="boardhost"><canvas id="fixture-board"></canvas><div id="boardnote">
+canvas: booting</div></div>
 <div id="report">fixture: booting</div>
+<!-- The shipped renderer and its wire constants, run on a canvas THIS
+     document owns. See "THE CANVAS HALF" below. -->
+<script src="./wire_constants.js"></script>
+<script src="./broadcast_core.js"></script>
 <script>
 /*
  * The worst-case TEXT fixture.
@@ -29,6 +40,19 @@
  * full-cap 100-rune seat line on all FOUR seats at canvas widths 360, 640 and
  * 1280 px. It does not re-implement any drawing (the particle-worlds
  * 2026-08-26 scar): every string it checks was laid out by the real chrome.
+ *
+ * THE CANVAS HALF. The shipped page hands #board to a Worker with
+ * transferControlToOffscreen (replay-viewer/static_replay.js), so every
+ * fillText the BOARD makes happens off the main thread and the measurer
+ * viewer_smoke.mjs patches onto CanvasRenderingContext2D.prototype in each
+ * frame never sees it: `canvas_text: {total: 0}`, which the acceptance
+ * checklist (item 15) calls "not evidence of anything". So the fixture also
+ * runs the SAME client/broadcast_core.js -- the file the Worker imports -- on
+ * a canvas THIS document owns, at the same three widths, and hands it a frame
+ * built to hurt: bombers on the top and bottom rows (where the radio badge has
+ * no room above the chip and must flip below it) and bombs in all four corners
+ * with the whole fuse ladder. Nothing is re-implemented; the draw calls are
+ * the shipped renderer's, on the main thread, where they can be measured.
  *
  * It fails by setting data-replay-error, which viewer_smoke.mjs reads and fails
  * fast on; it passes by setting data-replay-loaded="true" on its own <html>.
@@ -81,6 +105,108 @@
     fail('the fixture\'s policy name is too short to crowd a 360px plate');
   }
 
+  // ---- the measurer -------------------------------------------------------
+  // The fixture measures every fillText/strokeText this document draws itself,
+  // rather than trusting the harness to: run outside viewer_smoke.mjs it must
+  // still be able to say "nothing was drawn" out loud. The patch sits ON TOP of
+  // the one viewer_smoke.mjs installs in its init script (both wrap the same
+  // prototype, ours calls through), so one draw is counted by both and the
+  // harness's --strict-text-bounds gate reads the same numbers this page does.
+  var TOL = 1;
+  var drawn = { total: 0, outside: 0, ellipsized: 0, strings: {} };
+  function tally(ctx, text, x, y) {
+    drawn.total += 1;
+    if (/\u2026\s*$/.test(text)) drawn.ellipsized += 1;
+    var canvas = ctx.canvas;
+    if (!canvas || !canvas.width || !canvas.height) return;
+    var m = ctx.measureText(text);
+    var align = ctx.textAlign;
+    var left = x;
+    if (align === 'center') left = x - m.width / 2;
+    else if (align === 'right' || align === 'end') left = x - m.width;
+    var right = left + m.width;
+    var top = y - (isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : 0);
+    var bottom = y + (isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : 0);
+    var edges = [];
+    if (top < -TOL) edges.push('top');
+    if (left < -TOL) edges.push('left');
+    if (bottom > canvas.height + TOL) edges.push('bottom');
+    if (right > canvas.width + TOL) edges.push('right');
+    var entry = drawn.strings[text] ||
+      (drawn.strings[text] = { inside: 0, outside: 0, edges: '', box: null,
+        canvas: null });
+    if (edges.length) {
+      drawn.outside += 1;
+      entry.outside += 1;
+      entry.edges = edges.join('+');
+      entry.box = [Math.round(left), Math.round(top), Math.round(right),
+        Math.round(bottom)];
+      entry.canvas = [canvas.width, canvas.height];
+    } else {
+      entry.inside += 1;
+    }
+  }
+  (function installMeasurer() {
+    var proto = window.CanvasRenderingContext2D &&
+      window.CanvasRenderingContext2D.prototype;
+    if (!proto) fail('this browser has no CanvasRenderingContext2D to measure');
+    ['fillText', 'strokeText'].forEach(function (name) {
+      var real = proto[name];
+      if (typeof real !== 'function') return;
+      proto[name] = function (text, x, y) {
+        var out = real.apply(this, arguments);
+        try { tally(this, String(text), x, y); } catch (ignored) { /* keep drawing */ }
+        return out;
+      };
+    });
+  })();
+
+  function neverInside() {
+    var never = [];
+    for (var text in drawn.strings) {
+      if (!Object.prototype.hasOwnProperty.call(drawn.strings, text)) continue;
+      var entry = drawn.strings[text];
+      if (entry.outside > 0 && entry.inside === 0) {
+        never.push({ text: text, edges: entry.edges, box: entry.box,
+          canvas: entry.canvas, draws: entry.outside });
+      }
+    }
+    return never;
+  }
+
+  // The merged report the harness reads. viewer_smoke.mjs evaluates
+  // `window.__coworldTextBounds.report()` in the TOP frame only, and each frame
+  // gets its own tally from the init script, so the iframe's numbers are folded
+  // in here rather than being lost.
+  function publishMergedBounds() {
+    var outer = window.__coworldTextBounds;
+    if (!outer || typeof outer.report !== 'function') return;
+    var innerOf = function () {
+      try {
+        var w = iframe.contentWindow;
+        var t = w && w.__coworldTextBounds;
+        return (t && typeof t.report === 'function') ? t.report() : null;
+      } catch (error) { return null; }
+    };
+    window.__coworldTextBounds = {
+      report: function () {
+        var a = outer.report();
+        var b = innerOf();
+        if (!b) return a;
+        return {
+          total: a.total + b.total,
+          outside: a.outside + b.outside,
+          ellipsized: a.ellipsized + b.ellipsized,
+          never_inside: a.never_inside + b.never_inside,
+          never_inside_samples: a.never_inside_samples
+            .concat(b.never_inside_samples).slice(0, 12),
+          distinct_capped: a.distinct_capped || b.distinct_capped,
+          samples: a.samples.concat(b.samples).slice(0, 12)
+        };
+      }
+    };
+  }
+
   function replayUrl() {
     var fromQuery = null;
     try {
@@ -129,6 +255,92 @@
     ];
     s.width = width;
     return s;
+  }
+
+  // ---- the canvas half ----------------------------------------------------
+  // The same state object, with the board contents that make the RENDERER draw
+  // text where there may be no room: a bomber on the top row (its radio badge
+  // wants the space above the chip, which does not exist, so drawRadioGlyphs
+  // must flip it below) and one on the bottom row, plus a bomb in each corner
+  // and the whole fuse ladder, since the fuse numeral is centred in its cell
+  // and the corner cells are the ones that can spill off the board.
+  var BOMBER_CELLS = [[1, 0], [9, 0], [1, 10], [9, 10]];
+  var BOMB_CELLS = [[0, 0], [10, 0], [0, 10], [10, 10], [5, 5], [3, 7], [7, 3]];
+  var FUSES = [8, 6, 4, 2, 1, 0, 3];
+
+  function canvasFrame(base, width) {
+    var s = synthetic(base, width);
+    var widthIndex = WIDTHS.indexOf(width);
+    s.pm.bombers = [];
+    for (var i = 0; i < 4; i++) {
+      s.pm.bombers.push({
+        seat: i, alias: ALIASES[i], team: TEAMS[i],
+        x: BOMBER_CELLS[i][0], y: BOMBER_CELLS[i][1],
+        alive: true, ammo: 3, range: 4, kick: true,
+        // A DISTINCT pair per (width, seat), because viewer_smoke.mjs's
+        // never_inside gate is per drawn STRING: were all four badges the same
+        // string, one that landed inside at 1280 px would mask the same string
+        // landing off-frame at 360 px and the gate would read 0 while the
+        // embed was broken.
+        radio: [1 + widthIndex, 1 + i], radioAge: 1,
+        skin: i < 2 ? 'plain' : 'crown',
+        fallback: i === 1
+      });
+    }
+    s.pm.bombs = [];
+    for (var b = 0; b < BOMB_CELLS.length; b++) {
+      s.pm.bombs.push({
+        id: b, x: BOMB_CELLS[b][0], y: BOMB_CELLS[b][1], fuse: FUSES[b],
+        range: 4, seat: b % 4, team: TEAMS[b % 4],
+        moving: b === 0 ? 'right' : 'none', blast: []
+      });
+    }
+    return s;
+  }
+
+  var board = document.getElementById('fixture-board');
+  var boardNote = document.getElementById('boardnote');
+  var core = null;
+  function ensureCore() {
+    if (core) return core;
+    if (!window.BroadcastCore || typeof window.BroadcastCore.create !== 'function') {
+      fail('broadcast_core.js did not publish window.BroadcastCore -- the ' +
+        'fixture cannot drive the real renderer');
+    }
+    core = window.BroadcastCore.create({
+      canvas: board,
+      websocket: false,
+      playoutBuffer: false,
+      viewportWidth: WIDTHS[0],
+      viewportHeight: WIDTHS[0],
+      devicePixelRatio: 1,
+      onText: function () {},
+      onStatus: function () {},
+      onFirstFrame: function () {},
+      onTransform: function () {}
+    });
+    // start() is deliberately not called: it kicks off an asset fetch against
+    // the NATIVE page's `<prefix>/client/` art path, which does not exist next
+    // to the bundle, and an rAF loop this page does not need. ingest() draws
+    // synchronously through the same draw() every Worker frame goes through,
+    // which is the code under test here.
+    return core;
+  }
+
+  function driveCanvas(base, width) {
+    var c = ensureCore();
+    var before = drawn.total;
+    c.setViewportSize(width, width, 1);
+    c.ingest(JSON.stringify(canvasFrame(base, width)));
+    if (board.width !== width || board.height !== width) {
+      fail('the fixture canvas is ' + board.width + 'x' + board.height +
+        ' where the renderer was asked for ' + width + 'px');
+    }
+    if (drawn.total <= before) {
+      fail('the real renderer drew no text at ' + width + 'px -- the ' +
+        'canvas_text gate would be measuring nothing');
+    }
+    return drawn.total - before;
   }
 
   var host = document.getElementById('host');
@@ -217,13 +429,67 @@
       checks.push(width + 'px: feed ' + Math.round(box.width) + 'x' +
         Math.round(box.height) + ', name ' +
         (name ? Math.round(name.getBoundingClientRect().width) : 0) + 'px');
+      // The same worst-case frame through the REAL board renderer, on a canvas
+      // this document owns, at this width.
+      var textDraws = driveCanvas(base, width);
+      checks[checks.length - 1] += ', canvas ' + textDraws + ' text draws';
       driveWidth(index + 1, done);
     }, 400);
+  }
+
+  // Everything the canvas half must be able to say when it is done. A fixture
+  // that reports zero drawn strings has tested nothing, which is exactly the
+  // state the --strict-text-bounds gate was in while the board lived in a
+  // Worker: `canvas_text: {total: 0}`.
+  function assertCanvasTextIsReal() {
+    if (drawn.total < 1) {
+      fail('no canvas text was measured at any width -- the --strict-text-' +
+        'bounds gate would be vacuous');
+    }
+    var sawFuse = false;
+    var sawRadio = false;
+    for (var text in drawn.strings) {
+      if (!Object.prototype.hasOwnProperty.call(drawn.strings, text)) continue;
+      if (/^[0-9]$/.test(text)) sawFuse = true;
+      if (text.indexOf('\u224b') === 0) sawRadio = true;
+    }
+    if (!sawFuse) fail('the renderer drew no bomb fuse numeral');
+    if (!sawRadio) fail('the renderer drew no radio pair badge');
+    // The fixture renders ONE settled worst-case frame per width -- there is no
+    // entrance animation here to be legitimately off-frame for a few frames --
+    // so ANY draw that crossed an edge is the defect, which is stricter than
+    // the harness's never_inside and is the fixture's own gate.
+    if (drawn.outside > 0) {
+      var crossed = [];
+      for (var key in drawn.strings) {
+        if (!Object.prototype.hasOwnProperty.call(drawn.strings, key)) continue;
+        if (drawn.strings[key].outside > 0) {
+          crossed.push(JSON.stringify(key) + ' ' + drawn.strings[key].edges +
+            ' [' + (drawn.strings[key].box || []).join(',') + '] in ' +
+            (drawn.strings[key].canvas || []).join('x'));
+        }
+      }
+      fail(drawn.outside + ' canvas text draw(s) crossed the board edge: ' +
+        crossed.slice(0, 4).join(' | '));
+    }
+    var never = neverInside();
+    if (never.length) {
+      var shown = never.slice(0, 4).map(function (n) {
+        return JSON.stringify(n.text) + ' ' + n.edges + ' [' +
+          (n.box || []).join(',') + '] in ' + (n.canvas || []).join('x');
+      }).join(' | ');
+      fail(never.length + ' string(s) were drawn OUTSIDE the board canvas on ' +
+        'every draw and never once inside: ' + shown);
+    }
   }
 
   function poll() {
     if (ready()) {
       driveWidth(0, function () {
+        assertCanvasTextIsReal();
+        publishMergedBounds();
+        boardNote.textContent = 'canvas: ' + drawn.total + ' text draws, ' +
+          neverInside().length + ' never inside';
         report.textContent = 'fixture ok - ' + checks.join(' | ');
         document.documentElement.setAttribute('data-replay-loaded', 'true');
       });
