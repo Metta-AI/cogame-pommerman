@@ -20,6 +20,11 @@ type
     failureSlot*: int
     lastTurnKey*: int
     turnRecords*: seq[string]
+    frameChats*: seq[ChatRecord]
+      ## Every chat record this frame wrote, in write order. The live server
+      ## hands these to broadcast.stepEvents, which is the only way a `turn`,
+      ## `order`, `radio`, `say` or `fallback` event reaches a LIVE spectator
+      ## packet -- replay playback gets the same records from the file.
     unregistered*: seq[int]
 
   EpisodeFrame* = object
@@ -106,6 +111,8 @@ proc runTurnIfDue*(
   inc sim.turnsPlayed
   for record in state.turnRecords:
     writer.writeChat(state.frame, 0, record)
+    state.frameChats.add(
+      ChatRecord(tick: state.frame, slot: 0, text: record))
   for seat in 0 ..< SeatCount:
     let directive = sim.directives[seat]
     case directive.source
@@ -116,8 +123,11 @@ proc runTurnIfDue*(
     of dsScripted: discard
     writer.writeOrder(
       state.frame, turnIndex, seat, directive.order, directive.radio)
-    writer.writeChat(state.frame, seat, directive.boundedDirectiveRecord(
-      turnIndex, seat, engine.lastRadioIn[seat], engine.lastView[seat]))
+    let record = directive.boundedDirectiveRecord(
+      turnIndex, seat, engine.lastRadioIn[seat], engine.lastView[seat])
+    writer.writeChat(state.frame, seat, record)
+    state.frameChats.add(
+      ChatRecord(tick: state.frame, slot: seat, text: record))
     sim.emitEvent(Directive, source = seat, amount = turnIndex,
       detail = $directive.source)
 
@@ -169,10 +179,12 @@ proc runEpisodeFrame*(
     discard
   result.startedGame = state.maybeStartFirstGame(sim, writer)
   state.turnRecords = @[]
+  state.frameChats = @[]
   if not state.finished:
     state.runTurnIfDue(sim, engine, writer, elapsedSeconds)
     result.faulted = not state.advanceEpisodeFrame(sim, writer)
     result.finishedGame = state.maybeNextGame(sim, writer)
+  result.records = state.frameChats
   inc state.frame
 
 proc finishEpisode*(

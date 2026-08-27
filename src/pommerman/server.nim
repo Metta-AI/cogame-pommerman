@@ -461,6 +461,11 @@ proc runServerLoop*(
     else:
       let elapsed = (getMonoTime() - episodeStart).inSeconds.int
       episodeFrame = driver.runEpisodeFrame(sim, engine, writer, elapsed)
+      ## The same records the replay reader hands stepEvents in playback. Live,
+      ## they come straight off the frame that just wrote them -- without this
+      ## the local /global spectator sees no `turn`, `order`, `radio`, `say` or
+      ## `fallback` line at all.
+      frameChats = episodeFrame.records
       if episodeFrame.startedGame:
         if driver.failureSlot >= 0 and not failureDeclared:
           failureDeclared = true

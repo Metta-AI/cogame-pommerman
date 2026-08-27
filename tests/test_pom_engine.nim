@@ -216,6 +216,47 @@ suite "pommerman engine":
       total += entry.getInt()
     check total == 0
 
+  test "the LIVE frame hands its chat records to the feed":
+    ## The live /global packet's feed is built by broadcast.stepEvents from the
+    ## frame's chat records. Playback reads them out of the replay; live, the
+    ## only source is EpisodeFrame.records -- when that stayed empty the local
+    ## spectator saw no turn, order, radio, say or fallback line at all.
+    var config = testConfig(maxTicks = 48)
+    var sim = initSimServer(config)
+    var engine = scriptedEngine(config)
+    var state = initEpisodeState()
+    var writer = openReplayWriter("", config.configJson())
+    for seat in 0 ..< SeatCount:
+      sim.admitSeat(seat, "")
+    var tracker = initBroadcastTracker()
+    var kinds: HashSet[string]
+    var says = 0
+    var guard = 0
+    while sim.phase == Playing or (guard < 40 and sim.phase == Lobby):
+      inc guard
+      if guard > 400:
+        break
+      let frame = state.runEpisodeFrame(sim, engine, writer, 0)
+      if frame.records.len > 0:
+        ## one record per seat, plus whatever the turn itself produced
+        check frame.records.len >= SeatCount
+        var directives = 0
+        for record in frame.records:
+          if parseJson(record.text){"k"}.getStr() == "directive":
+            inc directives
+        check directives == SeatCount
+      for event in stepEvents(sim, tracker, frame.records):
+        kinds.incl(event{"k"}.getStr())
+        if event{"k"}.getStr() == "say":
+          inc says
+    checkpoint("feed kinds: " & $kinds)
+    for kind in ["turn", "order", "radio"]:
+      checkpoint(kind)
+      check kind in kinds
+    ## the scripted baselines are silent, so no `say` line is expected here --
+    ## what matters is that the records reached the feed at all
+    check says == 0
+
   test "the state packet the viewer consumes is well formed":
     var config = testConfig(maxTicks = 48)
     let run = runScriptedEpisode(config)
