@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en" data-fixture="pommerman-renderer">
+<head>
+<meta charset="utf-8">
+<title>pommerman worst-case renderer fixture</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #120d09; color: #f2e8d8;
+    font: 12px system-ui; overflow: hidden; }
+  #host { position: absolute; inset: 0 0 24px 0; }
+  iframe { border: 0; display: block; }
+  #report { position: absolute; left: 0; right: 0; bottom: 0; height: 24px;
+    line-height: 24px; padding: 0 8px; white-space: nowrap;
+    overflow: hidden; background: #0b0704; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<div id="report">fixture: booting</div>
+<script>
+/*
+ * The worst-case TEXT fixture.
+ *
+ * tools/ci/docker_smoke.sh runs with NO ANTHROPIC_API_KEY, so every seat in the
+ * CI replay plays the scripted baseline and a scripted seat emits no `say` at
+ * all -- the smoke replay can never exercise the feed's text path
+ * (cogchemists, 2026-08-24). This page therefore LOADS THE SHIPPED
+ * dist/static-replay-viewer/index.html in an iframe, waits for its own
+ * data-replay-loaded, and then drives THAT PAGE'S OWN feed and scorebug with a
+ * full-cap 100-rune seat line on all FOUR seats at canvas widths 360, 640 and
+ * 1280 px. It does not re-implement any drawing (the particle-worlds
+ * 2026-08-26 scar): every string it checks was laid out by the real chrome.
+ *
+ * It fails by setting data-replay-error, which viewer_smoke.mjs reads and fails
+ * fast on; it passes by setting data-replay-loaded="true" on its own <html>.
+ */
+(function () {
+  'use strict';
+
+  // 360 is the featured-match embed, 640 is the .tiny boundary relayout()
+  // toggles at, 1280 is desktop.
+  var WIDTHS = [360, 640, 1280];
+  // 100 runes exactly -- MaxSayRunes. The padding is U+00B7 MIDDLE DOT, never
+  // an ellipsis, so a string that was silently shortened cannot be mistaken for
+  // one that was deliberately elided (the fog-of-war-boards 2026-08-27 scar).
+  // Two 4-byte emoji sit ON the cap so a byte truncation anywhere on the path
+  // shows up as mojibake rather than passing quietly.
+  var CAP_SAY = (function () {
+    var body = 'boxing him against the SE lattice, partner take the north lane ';
+    var runes = Array.from(body);
+    while (runes.length < 98) runes.push('\u00b7');
+    runes.length = 98;
+    return runes.join('') + '\u{1F6E1}\u{1F525}';
+  })();
+  var CAP_SAY_RUNES = 100;
+  var LONG_NAME = 'pommerman-firestarter-with-a-very-long-policy-name';
+
+  function fail(message) {
+    document.documentElement.setAttribute('data-replay-error', message);
+    document.getElementById('report').textContent = 'fixture FAILED: ' + message;
+    throw new Error(message);
+  }
+
+  // THE FIXTURE'S OWN STRINGS ARE UNDER TEST TOO. One quietly shortened remark
+  // leaves everything below passing while testing nothing, so the worst case is
+  // asserted to still BE the worst case before it is ever rendered: full cap,
+  // in runes, ending on the two 4-byte emoji.
+  if (Array.from(CAP_SAY).length !== CAP_SAY_RUNES) {
+    fail('the fixture\'s own seat line is ' +
+      Array.from(CAP_SAY).length + ' runes, not the ' + CAP_SAY_RUNES +
+      '-rune cap it is supposed to drive');
+  }
+  if (!/\u{1F6E1}\u{1F525}$/u.test(CAP_SAY)) {
+    fail('the fixture\'s seat line no longer ends on the cap-straddling ' +
+      'emoji pair');
+  }
+  if (CAP_SAY.indexOf('\u2026') >= 0) {
+    fail('the fixture pads with an ellipsis, so a truncated string would be ' +
+      'indistinguishable from the intended one');
+  }
+  if (LONG_NAME.length < 40) {
+    fail('the fixture\'s policy name is too short to crowd a 360px plate');
+  }
+
+  function replayUrl() {
+    var fromQuery = null;
+    try {
+      fromQuery = new URLSearchParams(location.search).get('replay');
+    } catch (error) { /* no query */ }
+    return fromQuery || './episode.replay';
+  }
+
+  var ALIASES = ['RED-1', 'BLUE-1', 'RED-2', 'BLUE-2'];
+  var TEAMS = ['red', 'blue', 'red', 'blue'];
+
+  function synthetic(base, width) {
+    // The real page's own state shape, with the worst-case strings written in.
+    var s = JSON.parse(JSON.stringify(base));
+    s.pm.seats = [];
+    for (var i = 0; i < 4; i++) {
+      s.pm.seats.push({
+        slot: i, alias: ALIASES[i], name: LONG_NAME + '-' + i,
+        team: TEAMS[i], alive: i !== 3, ammo: 2, range: 3, kick: i === 0,
+        kills: 1, bombs: 14, wood: 12, radio: [3, 7],
+        fallbacks: i === 1 ? 1 : 0, kind: 'llm'
+      });
+    }
+    s.teams = {
+      red: { lives: 2, alive: 2, kills: 2, wood: 21, score: 141,
+             policies: [LONG_NAME + '-0', LONG_NAME + '-2'],
+             aliases: ['RED-1', 'RED-2'], radio: [3, 7], fallback: false },
+      blue: { lives: 1, alive: 1, kills: 0, wood: 20, score: -141,
+              policies: [LONG_NAME + '-1', LONG_NAME + '-3'],
+              aliases: ['BLUE-1', 'BLUE-2'], radio: [1, 1], fallback: true }
+    };
+    // The feed keeps only its newest few rows and pushFeed inserts at the TOP,
+    // so the worst-case seat lines go LAST: they are the strings under test and
+    // they must survive the trim.
+    s.pm.events = [
+      { k: 'order', seat: 0, verb: 'hunt', arg: 'BLUE-1' },
+      { k: 'radio', seat: 0, team: 'red', a: 3, b: 7 },
+      { k: 'kick', seat: 0, x: 4, y: 6, dir: 'left' },
+      { k: 'fallback', seat: 1, cause: 'timeout' },
+      { k: 'collapse', ring: 1, tick: 96 },
+      { k: 'firstblood', killer: 0, victim: 3 },
+      { k: 'say', seat: 3, text: CAP_SAY },
+      { k: 'say', seat: 2, text: CAP_SAY },
+      { k: 'say', seat: 1, text: CAP_SAY },
+      { k: 'say', seat: 0, text: CAP_SAY }
+    ];
+    s.width = width;
+    return s;
+  }
+
+  var host = document.getElementById('host');
+  var report = document.getElementById('report');
+  var iframe = document.createElement('iframe');
+  iframe.src = './index.html?replay=' + encodeURIComponent(replayUrl());
+  iframe.width = WIDTHS[0];
+  iframe.height = Math.round(WIDTHS[0] * 1.35);
+  host.appendChild(iframe);
+
+  var deadline = Date.now() + 60000;
+  var checks = [];
+
+  function ready() {
+    try {
+      var doc = iframe.contentDocument;
+      return !!doc &&
+        doc.documentElement.getAttribute('data-replay-loaded') === 'true';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function driveWidth(index, done) {
+    if (index >= WIDTHS.length) { done(); return; }
+    var width = WIDTHS[index];
+    iframe.width = width;
+    iframe.height = Math.round(width * 1.35);
+    setTimeout(function () {
+      var w = iframe.contentWindow;
+      var doc = iframe.contentDocument;
+      if (!w.PommermanChrome || !w.POMMERMAN_CTX) {
+        fail('the shipped page exposes no PommermanChrome/POMMERMAN_CTX to drive');
+      }
+      var base = w.POMMERMAN_CTX.getState();
+      if (!base || !base.pm) fail('the shipped page has no state frame yet');
+      var s = synthetic(base, width);
+      w.PommermanChrome.frame(s, w.POMMERMAN_CTX, false);
+
+      // What can actually go wrong with DOM text: a row clipped to nothing, or
+      // a name collapsed to a bare ellipsis. Both are measured on the REAL
+      // laid-out nodes.
+      var feed = doc.getElementById('killfeed');
+      var rows = feed ? feed.querySelectorAll('.feed-row') : [];
+      if (!rows.length) fail('no feed row was rendered at ' + width + 'px');
+      var sayRow = feed.querySelector('.pm-say');
+      if (sayRow) sayRow = sayRow.parentNode;
+      if (!sayRow) {
+        var seen = [];
+        for (var i = 0; i < rows.length; i++) seen.push(rows[i].className);
+        fail('the seat line never reached the feed at ' + width +
+          'px (rows: ' + seen.join(' | ') + ')');
+      }
+      var box = sayRow.getBoundingClientRect();
+      if (box.width < 20 || box.height < 6) {
+        fail('the seat line laid out as a sliver at ' + width + 'px: ' +
+          Math.round(box.width) + 'x' + Math.round(box.height));
+      }
+      if (box.top < -1 || box.left < -1) {
+        fail('the seat line was laid out off-frame at ' + width + 'px');
+      }
+      // ...and the row still carries the WHOLE remark. A box of the right size
+      // holding a shortened sentence is the failure this catches: DOM ellipsis
+      // is visual, so textContent is still the full string unless something on
+      // the path cut it.
+      var sayText = sayRow.textContent || '';
+      if (sayText.indexOf(CAP_SAY) < 0) {
+        var quoteAt = sayText.indexOf('\u201c');
+        var shown = quoteAt >= 0
+          ? sayText.slice(quoteAt + 1, sayText.lastIndexOf('\u201d'))
+          : sayText;
+        fail('the rendered seat line is not the full-cap string at ' +
+          width + 'px: ' + Array.from(shown).length + ' of ' + CAP_SAY_RUNES +
+          ' runes reached the feed');
+      }
+      var name = doc.getElementById('pname-0');
+      if (name) {
+        var nameBox = name.getBoundingClientRect();
+        var text = (name.textContent || '').trim();
+        if (!text.length) fail('the plate name is empty at ' + width + 'px');
+        if (nameBox.width < 18) {
+          fail('the plate name collapsed to ' + Math.round(nameBox.width) +
+            'px at ' + width + 'px -- .plate-name needs min-width');
+        }
+      }
+      checks.push(width + 'px: feed ' + Math.round(box.width) + 'x' +
+        Math.round(box.height) + ', name ' +
+        (name ? Math.round(name.getBoundingClientRect().width) : 0) + 'px');
+      driveWidth(index + 1, done);
+    }, 400);
+  }
+
+  function poll() {
+    if (ready()) {
+      driveWidth(0, function () {
+        report.textContent = 'fixture ok - ' + checks.join(' | ');
+        document.documentElement.setAttribute('data-replay-loaded', 'true');
+      });
+      return;
+    }
+    try {
+      var error = iframe.contentDocument &&
+        iframe.contentDocument.documentElement.getAttribute('data-replay-error');
+      if (error) fail('the shipped page failed: ' + error);
+    } catch (ignored) { /* cross-document timing */ }
+    if (Date.now() > deadline) {
+      fail('the shipped page never set data-replay-loaded');
+    }
+    setTimeout(poll, 250);
+  }
+  poll();
+})();
+</script>
+</body>
+</html>

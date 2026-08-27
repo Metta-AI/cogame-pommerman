@@ -1,0 +1,434 @@
+<style>
+/* --- the ready-room curtain never swallows a transport click ------------ */
+/* The inherited curtain covers the viewport at z-index 25 and only becomes
+   click-through when `.gone` lands, which is LOCKER_MIN_DWELL_MS (900 ms)
+   after the first frame -- so for the first ~900 ms every click on the
+   scrubber, the play button or a beat marker is eaten by a decorative scene.
+   A human rarely notices; a headless smoke clicks at ~400 ms and its
+   "mid-replay seek" readout is then the frame it started on. The curtain has
+   no interactive children in this fork -- backdrop, sprites and a rotating
+   caption -- so it is decoration and says so. The fade, the dwell and every
+   inherited rule are untouched. */
+#lockerroom { pointer-events: none; }
+
+/* --- scorebug: team chip, bomber chips, alive numeral, radio pair ------- */
+/* The plate name must survive a 360px featured-match iframe: it grows into
+   whatever room the plate has and ellipsises only when it genuinely runs out,
+   never collapsing to a bare "..." . */
+.plate-name {
+  flex: 1 1 auto;
+  min-width: 3.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.plate .team-chip {
+  font-family: var(--finefont);
+  font-size: calc(7 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #16110d;
+  padding: calc(1 * var(--u)) calc(3 * var(--u));
+  border-radius: calc(2 * var(--u));
+  flex: none;
+}
+.plate .bomber-chips {
+  display: flex;
+  gap: calc(3 * var(--u));
+  flex: none;
+}
+.plate .bchip {
+  font-family: var(--pixfont);
+  font-size: calc(9 * var(--u));
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  white-space: nowrap;
+}
+.plate .bchip.down { color: var(--paper-dim); text-decoration: line-through; }
+.plate .bchip i {
+  font-style: normal;
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  color: var(--paper-dim);
+  margin-left: calc(2 * var(--u));
+  font-variant-numeric: tabular-nums;
+}
+.plate .bchip i b { color: var(--amber); font-weight: 400; }
+.plate .alive-label {
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  flex: none;
+}
+.plate .alive-num {
+  font-family: var(--pixfont);
+  font-size: calc(22 * var(--u));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.plate .kill-num {
+  font-family: var(--pixfont);
+  font-size: calc(11 * var(--u));
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.plate .radio-pair {
+  font-family: var(--pixfont);
+  font-size: calc(10 * var(--u));
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.plate .fb-glyph {
+  font-family: var(--pixfont);
+  font-size: calc(11 * var(--u));
+  color: var(--amber);
+  flex: none;
+}
+/* Under 640px of board the labels go: each plate keeps team name + the two
+   policy names + the kill numeral + the radio pair, and the per-bomber
+   ammo/range numerals are hidden FROM THE PLATE (they stay on the board).
+   `.tiny` is toggled by relayout() at boardW < 640 (page_script.js). */
+#stage.tiny .plate .alive-label,
+#stage.tiny .plate .bchip i,
+#stage.tiny .plate .fb-glyph { display: none; }
+
+/* --- the DANGER toggle, in the TOP band and never in the transport band - */
+#dangerchip {
+  position: absolute;
+  top: calc(3 * var(--u));
+  right: calc(6 * var(--u));
+  z-index: 6;
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  background: rgba(12, 9, 6, 0.62);
+  border: 0;
+  padding: calc(3 * var(--u)) calc(6 * var(--u));
+  cursor: pointer;
+}
+#dangerchip.on { color: var(--amber); box-shadow: inset 0 0 0 1px currentColor; }
+
+/* --- scrubber beats: one rule per kind the sim emits, and no others ----- */
+/* Buttons, not divs: each carries a title + aria-label and seeks on click. */
+button.beat-marker {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+  background: var(--paper-dim);
+}
+.beat-marker.firstblood {
+  background: var(--paper);
+  width: calc(3 * var(--u));
+  height: calc(12 * var(--u));
+}
+.beat-marker.kick { width: calc(2 * var(--u)); height: calc(8 * var(--u)); }
+.beat-marker.kick.red { background: var(--red); }
+.beat-marker.kick.blue { background: var(--blue); }
+.beat-marker.death { width: calc(4 * var(--u)); height: calc(14 * var(--u)); }
+.beat-marker.death.red { background: var(--red); }
+.beat-marker.death.blue { background: var(--blue); }
+.beat-marker.collapse {
+  background: var(--paper);
+  width: calc(2 * var(--u));
+  height: calc(16 * var(--u));
+  opacity: 0.75;
+}
+.beat-marker.fallback {
+  background: var(--amber);
+  width: calc(2 * var(--u));
+  height: calc(7 * var(--u));
+  opacity: 0.9;
+}
+.beat-marker.end {
+  background: var(--amber);
+  width: calc(3 * var(--u));
+  height: calc(14 * var(--u));
+}
+
+/* --- endcard columns and the per-bomber rows --------------------------- */
+.ec-thead, .ec-trow {
+  display: grid;
+  grid-template-columns: 1.9fr 0.6fr 0.6fr 0.6fr 0.7fr;
+  gap: calc(4 * var(--u));
+  font-size: calc(9 * var(--u));
+}
+.ec-thead {
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: calc(4 * var(--u));
+}
+.ec-trow { font-variant-numeric: tabular-nums; }
+.ec-tname {
+  font-family: var(--pixfont);
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.1em;
+}
+.ec-tfoot {
+  display: flex;
+  align-items: baseline;
+  gap: calc(6 * var(--u));
+  margin-top: calc(4 * var(--u));
+}
+.ec-tfoot .fl-cap {
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+.ec-tfoot .fl-num {
+  font-family: var(--pixfont);
+  font-size: calc(18 * var(--u));
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- feed rows -------------------------------------------------------- */
+.feed-row .pm-order { color: var(--amber); }
+.feed-row .pm-say { color: var(--paper); font-style: italic; }
+.feed-row .pm-radio { color: var(--paper-dim); }
+</style>
+<script>
+(function () {
+  'use strict';
+  // Every name here carries a pm-/pom- prefix ON PURPOSE. The page's chrome
+  // alias block declares the shared beat builder with a hoisted `var markBeat`,
+  // so a game-block function of that same name would be silently swallowed by
+  // it and the scrubber would end up with unlabelled div markers that never
+  // seek (cogame-tandem, 2026-08-23). tests/test_pom_viewer.nim asserts the
+  // whole alias list is untouched below this banner.
+  var CTX = null;
+  var placed = {};          // "tick|kind|team" -> true (dedup)
+  var pmMarkers = [];       // this block's marker buttons (the spoiler gate)
+  var beatsPlaced = false;
+  var dangerOn = true;
+
+  function pmId(id) { return document.getElementById(id); }
+
+  function scrubGeometry(s) {
+    var st = Math.max(0, s.st || 0);
+    var mx = Math.max(st + 1, s.mx || 1);
+    return { st: st, span: mx - st };
+  }
+
+  // pomBeat -- NEVER markBeat. Appends a LABELLED, CLICKABLE button to #scrub
+  // that seeks on click.
+  function pomBeat(s, tick, kind, team, label) {
+    var key = tick + '|' + kind + '|' + (team || '');
+    if (placed[key]) return;
+    placed[key] = true;
+    var scrub = pmId('scrub');
+    if (!scrub) return;
+    var g = scrubGeometry(s);
+    var el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'beat-marker ' + kind + (team ? ' ' + team : '');
+    el.style.left =
+      (Math.min(1, Math.max(0, (tick - g.st) / g.span)) * 100) + '%';
+    el.title = label + ' \u2014 click to jump here';
+    el.setAttribute('aria-label', label);
+    el.__tick = tick;
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      CTX.send('s:' + tick);
+    });
+    scrub.appendChild(el);
+    pmMarkers.push(el);
+  }
+
+  // [spoilers] gate for THIS block's markers. The shared chrome walks only its
+  // own marker list, so with spoilers off its markers hide and these six kinds
+  // would still sit on the scrubber ahead of the playhead -- while the
+  // retitled #btn-spoilers tooltip promises "kills / collapses / winner on the
+  // timeline ahead of the playhead". Same rule, same tick comparison, applied
+  // to the buttons this block appended.
+  function pmSpoilerGate(s) {
+    if (!s || !CTX || !CTX.C || !CTX.C.getSpoilers) return;
+    var spoilers = CTX.C.getSpoilers();
+    for (var i = 0; i < pmMarkers.length; i++) {
+      var el = pmMarkers[i];
+      var hide = !spoilers && el.__tick > s.t;
+      if (el.__hidden !== hide) {
+        el.__hidden = hide;
+        el.style.display = hide ? 'none' : '';
+      }
+    }
+  }
+
+  function feedRow(html, cls) {
+    var row = document.createElement('div');
+    row.className = 'feed-row' + (cls ? ' ' + cls : '');
+    row.innerHTML = html;
+    CTX.pushFeed(row);
+  }
+
+  function aliasOf(s, seat) {
+    var seats = (s.pm && s.pm.seats) || [];
+    return (seats[seat] && seats[seat].alias) || ('SEAT ' + seat);
+  }
+
+  function teamOfSeat(s, seat) {
+    var seats = (s.pm && s.pm.seats) || [];
+    return (seats[seat] && seats[seat].team) || '';
+  }
+
+  // The DANGER toggle lives in the TOP band, never in the transport band.
+  function ensureDangerChip() {
+    if (pmId('dangerchip')) return;
+    var chrome = pmId('chrome');
+    if (!chrome) return;
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.id = 'dangerchip';
+    chip.textContent = 'danger';
+    chip.title = 'Blast-forecast overlay (d)';
+    chip.setAttribute('aria-label', 'Toggle the blast-forecast overlay');
+    chip.classList.add('on');
+    chip.addEventListener('click', toggleDanger);
+    chrome.appendChild(chip);
+  }
+
+  function toggleDanger() {
+    dangerOn = !dangerOn;
+    var chip = pmId('dangerchip');
+    if (chip) chip.classList.toggle('on', dangerOn);
+    if (CTX && CTX.core && CTX.core.setDanger) CTX.core.setDanger(dangerOn);
+  }
+
+  // Plain language, never internal notation.
+  function pmEvent(event, s) {
+    switch (event.k) {
+      case 'order':
+        feedRow('<span class="pm-order">' + CTX.esc(aliasOf(s, event.seat)) +
+          ' \u2192 ' + CTX.esc(event.verb) +
+          (event.arg ? ' ' + CTX.esc(event.arg) : '') + '</span>');
+        return true;
+      case 'radio':
+        feedRow('<span class="pm-radio">' +
+          CTX.esc(String(event.team || '').toUpperCase()) + ' radios ' +
+          event.a + '\u00b7' + event.b + '</span>');
+        return true;
+      case 'say':
+        feedRow('<span class="pm-say">' + CTX.esc(aliasOf(s, event.seat)) +
+          ': \u201c' + CTX.esc(event.text) + '\u201d</span>');
+        return true;
+      case 'bomb':
+        feedRow(CTX.esc(aliasOf(s, event.seat)) + ' drops a bomb');
+        return true;
+      case 'wood':
+        feedRow(CTX.esc(String(event.team || '').toUpperCase()) +
+          ' breaks a wall');
+        return true;
+      case 'pickup':
+        feedRow(CTX.esc(aliasOf(s, event.seat)) + ' picks up ' +
+          CTX.esc(event.kind));
+        return true;
+      case 'kick':
+        feedRow('<b>' + CTX.esc(aliasOf(s, event.seat)) +
+          ' KICKS A BOMB ' + CTX.esc(String(event.dir).toUpperCase()) +
+          '</b>');
+        CTX.beatPulse();
+        pomBeat(s, s.t, 'kick', teamOfSeat(s, event.seat),
+          aliasOf(s, event.seat) + ' kicks a bomb ' + event.dir);
+        return true;
+      case 'fallback':
+        feedRow(CTX.esc(aliasOf(s, event.seat)) +
+          ' MISSED THE CALL \u2014 scripted order (' +
+          CTX.esc(event.cause) + ')');
+        pomBeat(s, s.t, 'fallback', '',
+          aliasOf(s, event.seat) + ' fell back to a scripted order');
+        return true;
+      case 'firstblood':
+        feedRow('<b>FIRST BLOOD \u2014 ' + CTX.esc(aliasOf(s, event.killer)) +
+          ' KILLS ' + CTX.esc(aliasOf(s, event.victim)) + '</b>');
+        CTX.banner('FIRST BLOOD \u2014 ' + aliasOf(s, event.killer) +
+          ' KILLS ' + aliasOf(s, event.victim), 'firstblood');
+        CTX.beatPulse();
+        pomBeat(s, s.t, 'firstblood', teamOfSeat(s, event.killer),
+          'First blood - ' + aliasOf(s, event.killer) + ' kills ' +
+          aliasOf(s, event.victim));
+        return true;
+      case 'death':
+        if (event.cause === 'suicide') {
+          feedRow('<b>' + CTX.esc(aliasOf(s, event.victim)) +
+            ' BLOWS ITSELF UP</b>');
+        } else if (event.cause === 'crushed') {
+          feedRow('<b>' + CTX.esc(aliasOf(s, event.victim)) +
+            ' IS CRUSHED BY THE WALLS</b>');
+        } else if (event.cause === 'friendlyfire') {
+          feedRow('<b>' + CTX.esc(aliasOf(s, event.victim)) +
+            ' IS KILLED BY ITS OWN PARTNER</b>');
+        } else {
+          feedRow('<b>' + CTX.esc(aliasOf(s, event.killer)) + ' KILLS ' +
+            CTX.esc(aliasOf(s, event.victim)) + '</b>');
+        }
+        CTX.beatPulse();
+        pomBeat(s, s.t, 'death', teamOfSeat(s, event.victim),
+          aliasOf(s, event.victim) + ' is down (' + event.cause + ')');
+        return true;
+      case 'collapse':
+        feedRow('<b>THE WALLS CLOSE IN \u2014 RING ' + event.ring + '</b>');
+        CTX.banner('THE WALLS CLOSE IN \u2014 RING ' + event.ring, 'collapse');
+        CTX.beatPulse();
+        pomBeat(s, event.tick, 'collapse', '',
+          'The walls close in - ring ' + event.ring);
+        return true;
+      case 'end':
+      case 'turn':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // The pre-scanned beat timeline arrives once, on the first frame, so every
+  // marker is on the scrubber at full width before playback reaches it.
+  function placeBeats(s) {
+    if (beatsPlaced || !s.beats) return;
+    beatsPlaced = true;
+    for (var i = 0; i < s.beats.length; i++) {
+      var b = s.beats[i];
+      pomBeat(s, b.t, b.k, b.side || '', b.label || b.k);
+    }
+  }
+
+  function frame(s, ctx, jumped) {
+    CTX = ctx;
+    ensureDangerChip();
+    // `placed` is NOT cleared on a backward jump. A marker is a permanent
+    // annotation of the timeline, and the buttons already on #scrub are not
+    // removed by a seek -- so clearing the dedup map only lets a live
+    // event replayed after the seek append a SECOND button at the same offset.
+    placeBeats(s);
+    var events = (s.pm && s.pm.events) || [];
+    for (var i = 0; i < events.length; i++) pmEvent(events[i], s);
+    pmSpoilerGate(s);
+  }
+
+  window.PommermanChrome = {
+    install: function (ctx) {
+      CTX = ctx;
+      ensureDangerChip();
+      if (ctx && ctx.core && ctx.core.setDanger) ctx.core.setDanger(dangerOn);
+      // The toggle can flip while playback is PAUSED, when no frame is coming
+      // to re-run the gate, so re-apply on the click as well.
+      var spoilerBtn = pmId('btn-spoilers');
+      if (spoilerBtn) {
+        spoilerBtn.addEventListener('click', function () {
+          pmSpoilerGate(CTX && CTX.getState ? CTX.getState() : null);
+        });
+      }
+    },
+    frame: frame,
+    toggleDanger: toggleDanger,
+    pomBeat: pomBeat,
+    applySpoilers: pmSpoilerGate
+  };
+})();
+</script>

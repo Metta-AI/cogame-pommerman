@@ -1,0 +1,7 @@
+.git
+nim.cfg
+nimcache
+scratch
+dist
+replay-viewer/dist
+node_modules

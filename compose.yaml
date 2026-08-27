@@ -1,0 +1,13 @@
+# ONE service: the manifest's image placeholder is DERIVED from the compose
+# service name (`service pommerman` -> `{{POMMERMAN_IMAGE}}`).
+# `{{GAME_IMAGE}}` is not a thing (lantern 0.1.0). One image with two
+# entrypoints, because the shared tools/ci/docker_smoke.sh and
+# tools/ci/policies.json both assume a single image.
+services:
+  pommerman:
+    image: coworld-pommerman:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host

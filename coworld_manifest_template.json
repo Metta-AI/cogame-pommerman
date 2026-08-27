@@ -1,0 +1,753 @@
+{
+  "$schema": "https://softmax.com/schemas/coworld-manifest-v1.json",
+  "tags": [
+    "bomberman",
+    "pommerman",
+    "grid",
+    "team",
+    "emergent-comm"
+  ],
+  "episode_timeout_minutes": 20,
+  "game": {
+    "name": "pommerman",
+    "owner": "daveey@softmax.com",
+    "description": "Pommerman as a Coworld. Four bombers stand in the four corners of an 11x11 walled grid packed with wooden walls, seated as two teams of two on the diagonals by the server. Bombs clear wood and kill; wood hides power-ups that give extra bombs, longer blasts and the ability to kick a bomb down a lane. Every four ticks each seat issues its bomber ONE order and sends its PARTNER two integers in 1..8 that the game gives no meaning and the opposing team never sees - an emergent-language channel between two policies that were seated as partners by the ladder and have never met. At tick 96 and again at 120 the outer rings turn to rigid wall and crush whatever stands on them, so the fight is forced into the middle and closes. The team score is exactly zero-sum, so no two seats can raise their joint total by cooperating across the table.",
+    "replay_viewer": {
+      "bundle": "static-replay-viewer"
+    },
+    "runnable": {
+      "type": "game",
+      "image": "{{POMMERMAN_IMAGE}}",
+      "run": [
+        "/bin/pommerman"
+      ],
+      "env": {
+        "ANTHROPIC_API_KEY_URI": "secret://coworld/pommerman/anthropic_api_key"
+      }
+    },
+    "protocols": {
+      "player": {
+        "type": "uri",
+        "value": "https://github.com/Metta-AI/cogame-pommerman/blob/main/docs/PROTOCOL.md"
+      },
+      "global": {
+        "type": "uri",
+        "value": "https://github.com/Metta-AI/cogame-pommerman/blob/main/docs/PROTOCOL.md"
+      }
+    },
+    "docs": {
+      "readme": {
+        "type": "uri",
+        "value": "https://github.com/Metta-AI/cogame-pommerman/blob/main/README.md"
+      },
+      "pages": [
+        {
+          "id": "rules.md",
+          "title": "Rules",
+          "content": {
+            "type": "uri",
+            "value": "https://github.com/Metta-AI/cogame-pommerman/blob/main/docs/RULES.md"
+          }
+        },
+        {
+          "id": "radio.md",
+          "title": "The radio channel",
+          "content": {
+            "type": "uri",
+            "value": "https://github.com/Metta-AI/cogame-pommerman/blob/main/docs/RADIO.md"
+          }
+        }
+      ]
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokens",
+        "players"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "array",
+          "description": "Per-seat join tokens. RUNNER-INJECTED: the platform supplies these, so no game_config in this manifest carries a literal tokens array.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "players": {
+          "type": "array",
+          "description": "One entry per seat. The name is spectator-side only; in game the seats are RED-1, BLUE-1, RED-2 and BLUE-2.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "slots": {
+          "type": "array",
+          "description": "Which team each seat holds. Server-assigned by slot parity and never chosen by a policy: seats 0 and 2 are RED, 1 and 3 are BLUE.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "team": {
+                "type": "string",
+                "enum": [
+                  "red",
+                  "blue"
+                ]
+              },
+              "token": {
+                "type": "string"
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 4
+        },
+        "collapseTicks": {
+          "type": "array",
+          "description": "The ticks at which ring 1 and then ring 2 turn to rigid wall and crush whatever stands on them.",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 0,
+          "maxItems": 3
+        },
+        "num_agents": {
+          "type": "integer",
+          "description": "Seats. Always exactly four: two teams of two on the diagonals. There is no other seating.",
+          "minimum": 4,
+          "maximum": 4,
+          "default": 4
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minPlayers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "default": 4
+        },
+        "maxTicks": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 2000,
+          "default": 144
+        },
+        "turnTicks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 4
+        },
+        "bombFuse": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 8
+        },
+        "flameLife": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 2
+        },
+        "startAmmo": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "default": 1
+        },
+        "maxAmmo": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9,
+          "default": 5
+        },
+        "startBlast": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11,
+          "default": 2
+        },
+        "maxBlast": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11,
+          "default": 6
+        },
+        "dodgeHorizon": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 6
+        },
+        "turnBudgetMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "default": 12000
+        },
+        "attempt1Ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000,
+          "default": 8000
+        },
+        "retryMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000,
+          "default": 3000
+        },
+        "turnSpacingMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "default": 10000
+        },
+        "wallClockBudgetSeconds": {
+          "type": "integer",
+          "description": "The engine's own hard stop, in seconds. 640 is 53 percent of the assumed 1200 s episode timeout, and the budget guard at elapsed > 616 s means the worst modelled settle is 649 s -- 54 percent, inside the 60 percent target. Never above 640.",
+          "minimum": 10,
+          "maximum": 640,
+          "default": 640
+        },
+        "lobbyJoinTimeoutTicks": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2400
+        },
+        "startWaitTicks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600,
+          "default": 24
+        },
+        "gameOverTicks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600,
+          "default": 90
+        },
+        "fastMode": {
+          "type": "boolean",
+          "default": true
+        },
+        "showPlayerLabels": {
+          "type": "boolean",
+          "default": false
+        },
+        "maxOutputTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192,
+          "default": 900
+        },
+        "model": {
+          "type": "string"
+        }
+      }
+    },
+    "results_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "teams": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "scores": {
+          "type": "array",
+          "description": "Each seat's team score. Exactly zero-sum across the four.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "win": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "winner": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "RED",
+            "BLUE",
+            null
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "deadline",
+            "fault"
+          ]
+        },
+        "endRule": {
+          "type": "string",
+          "enum": [
+            "wipe",
+            "tickCap",
+            "wallClock",
+            "fault"
+          ]
+        },
+        "teamScores": {
+          "type": "array",
+          "description": "Indexed [RED, BLUE].",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "teamAlive": {
+          "type": "array",
+          "description": "Indexed [RED, BLUE].",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "teamKills": {
+          "type": "array",
+          "description": "Indexed [RED, BLUE].",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "teamWood": {
+          "type": "array",
+          "description": "Indexed [RED, BLUE].",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "alive": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "kills": {
+          "type": "array",
+          "description": "Cross-team kills credited to each seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "deaths": {
+          "type": "array",
+          "description": "Deaths per seat, however caused.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "suicides": {
+          "type": "array",
+          "description": "Deaths per seat caused by that seat's own bomb.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "bombsPlaced": {
+          "type": "array",
+          "description": "Bombs laid per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "woodCleared": {
+          "type": "array",
+          "description": "Wooden walls cleared per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "kicks": {
+          "type": "array",
+          "description": "Bombs kicked per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "pickups": {
+          "type": "array",
+          "description": "Power-ups taken per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "radioSent": {
+          "type": "array",
+          "description": "Radio pairs sent per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "finalTick": {
+          "type": "integer"
+        },
+        "turnsPlayed": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "policyKinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "llmTurns": {
+          "type": "array",
+          "description": "Turns each seat answered with a real LLM reply.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "fallbackTurns": {
+          "type": "array",
+          "description": "Turns each seat fell back to the scripted order.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "ordersRejected": {
+          "type": "array",
+          "description": "Reply fields repaired by the validator, per seat.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "deadSeats": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "stopDetail": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "player": [
+    {
+      "id": "sapper",
+      "type": "player",
+      "name": "pommerman-sapper",
+      "description": "The published scripted default and the server-side fallback: bomb an enemy in a clear lane, else bomb the wood you are standing beside, else walk to the nearest power-up, else break toward the middle, and head inward before the rings close. Sends a real radio pair every turn: ammo plus one, and enemies within four cells plus one.",
+      "image": "{{POMMERMAN_IMAGE}}",
+      "run": [
+        "/bin/pommerman-player"
+      ],
+      "source_url": "https://github.com/Metta-AI/cogame-pommerman",
+      "env": {
+        "PLAYER_SCRIPTED": "sapper"
+      },
+      "resources": {
+        "requests": {
+          "cpu": "100m",
+          "memory": "64Mi"
+        },
+        "limits": {
+          "cpu": "1"
+        }
+      }
+    },
+    {
+      "id": "camper",
+      "type": "player",
+      "name": "pommerman-camper",
+      "description": "Deliberately weaker and different in shape: it only bombs an adjacent enemy or a wall it has two safe exits from, hides the rest of the time, and sends [1, 1] every single turn. The silent partner is the control against which 'did the radio matter?' is measured on the ladder.",
+      "image": "{{POMMERMAN_IMAGE}}",
+      "run": [
+        "/bin/pommerman-player"
+      ],
+      "source_url": "https://github.com/Metta-AI/cogame-pommerman",
+      "env": {
+        "PLAYER_SCRIPTED": "camper"
+      },
+      "resources": {
+        "requests": {
+          "cpu": "100m",
+          "memory": "64Mi"
+        },
+        "limits": {
+          "cpu": "1"
+        }
+      }
+    }
+  ],
+  "variants": [
+    {
+      "id": "teams",
+      "name": "2v2 Team Radio (11x11)",
+      "description": "Four bombers on an 11x11 grid, two teams of two on the diagonals, 36 command turns. Bombs clear wood and kill; power-ups give extra bombs, longer blasts and the ability to kick. Every turn each seat sends its partner two integers in 1..8 that the game gives no meaning and the opposing team never sees. The outer rings collapse at tick 96 and 120.",
+      "game_config": {
+        "players": [
+          {
+            "name": "RED-1"
+          },
+          {
+            "name": "BLUE-1"
+          },
+          {
+            "name": "RED-2"
+          },
+          {
+            "name": "BLUE-2"
+          }
+        ],
+        "slots": [
+          {
+            "team": "red"
+          },
+          {
+            "team": "blue"
+          },
+          {
+            "team": "red"
+          },
+          {
+            "team": "blue"
+          }
+        ],
+        "num_agents": 4,
+        "minPlayers": 4,
+        "maxTicks": 144,
+        "turnTicks": 4,
+        "bombFuse": 8,
+        "flameLife": 2,
+        "startAmmo": 1,
+        "maxAmmo": 5,
+        "startBlast": 2,
+        "maxBlast": 6,
+        "collapseTicks": [
+          96,
+          120
+        ],
+        "dodgeHorizon": 6,
+        "attempt1Ms": 8000,
+        "retryMs": 3000,
+        "turnBudgetMs": 12000,
+        "turnSpacingMs": 10000,
+        "wallClockBudgetSeconds": 640,
+        "lobbyJoinTimeoutTicks": 2400,
+        "startWaitTicks": 24,
+        "gameOverTicks": 90,
+        "fastMode": true,
+        "showPlayerLabels": false
+      }
+    },
+    {
+      "id": "blitz",
+      "name": "Blitz (11x11, 96 ticks)",
+      "description": "The same rules and the same radio on a 96-tick clock - 24 command turns, rings collapsing at 64 and 80. A faster ladder round with the identical command surface, for divisions that want more episodes per hour.",
+      "game_config": {
+        "players": [
+          {
+            "name": "RED-1"
+          },
+          {
+            "name": "BLUE-1"
+          },
+          {
+            "name": "RED-2"
+          },
+          {
+            "name": "BLUE-2"
+          }
+        ],
+        "slots": [
+          {
+            "team": "red"
+          },
+          {
+            "team": "blue"
+          },
+          {
+            "team": "red"
+          },
+          {
+            "team": "blue"
+          }
+        ],
+        "num_agents": 4,
+        "minPlayers": 4,
+        "maxTicks": 96,
+        "turnTicks": 4,
+        "bombFuse": 8,
+        "flameLife": 2,
+        "startAmmo": 1,
+        "maxAmmo": 5,
+        "startBlast": 2,
+        "maxBlast": 6,
+        "collapseTicks": [
+          64,
+          80
+        ],
+        "dodgeHorizon": 6,
+        "attempt1Ms": 8000,
+        "retryMs": 3000,
+        "turnBudgetMs": 12000,
+        "turnSpacingMs": 10000,
+        "wallClockBudgetSeconds": 640,
+        "lobbyJoinTimeoutTicks": 2400,
+        "startWaitTicks": 24,
+        "gameOverTicks": 90,
+        "fastMode": true,
+        "showPlayerLabels": false
+      }
+    }
+  ],
+  "certification": {
+    "players": [
+      {
+        "player_id": "sapper"
+      },
+      {
+        "player_id": "camper"
+      },
+      {
+        "player_id": "sapper"
+      },
+      {
+        "player_id": "camper"
+      }
+    ],
+    "game_config": {
+      "players": [
+        {
+          "name": "RED-1"
+        },
+        {
+          "name": "BLUE-1"
+        },
+        {
+          "name": "RED-2"
+        },
+        {
+          "name": "BLUE-2"
+        }
+      ],
+      "slots": [
+        {
+          "team": "red"
+        },
+        {
+          "team": "blue"
+        },
+        {
+          "team": "red"
+        },
+        {
+          "team": "blue"
+        }
+      ],
+      "num_agents": 4,
+      "minPlayers": 4,
+      "maxTicks": 144,
+      "turnTicks": 4,
+      "bombFuse": 8,
+      "flameLife": 2,
+      "startAmmo": 1,
+      "maxAmmo": 5,
+      "startBlast": 2,
+      "maxBlast": 6,
+      "collapseTicks": [
+        96,
+        120
+      ],
+      "dodgeHorizon": 6,
+      "attempt1Ms": 8000,
+      "retryMs": 3000,
+      "turnBudgetMs": 12000,
+      "turnSpacingMs": 0,
+      "wallClockBudgetSeconds": 240,
+      "lobbyJoinTimeoutTicks": 600,
+      "startWaitTicks": 24,
+      "gameOverTicks": 90,
+      "fastMode": true,
+      "showPlayerLabels": false,
+      "seed": 42
+    }
+  }
+}

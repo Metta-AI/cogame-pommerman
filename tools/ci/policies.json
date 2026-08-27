@@ -1,0 +1,31 @@
+[
+  {
+    "name": "pommerman-firestarter",
+    "run": "/bin/pommerman-player",
+    "env": {
+      "PLAYER_PROMPT": "Play forward and make the board yours. Turn 1 through 6: \"break\", every turn, without\nexception - you cannot fight with range 2 and one bomb, and every wooden wall you take\ndown is a lane you can retreat along and a chance at a power-up. The moment \"board\"\nshows an e, r or k you can reach, \"go\" to it; range and extra bombs beat position this\nearly.\nFrom turn 7, read \"danger\" before anything else. If your own cell shows a digit, order\n\"hide\" and lose the turn - a dead bomber scores nothing. If you are clean and an enemy\nis on your row or column within (your range - 1) cells with nothing but floor between\nyou, order \"hunt\" on it. Otherwise keep breaking toward the middle.\nFrom turn 22 head inward: \"go\" to a cell in the 5x5 middle block (x and y both between\n3 and 7) and be inside it before tick 96. Outside the ring is a death sentence at 96\nand again at 120, and the bomber that arrives first picks the corner.\nOnce inside, hunt. Prefer the opponent with lower ammo. If you take kick, use it: a\nkicked bomb down a straight lane is the only way to hit something that will not come\nto you, and it costs you nothing.\nRADIO. Send [a, b] where a is your intent this turn and b is where you are:\na = 1 breaking wood, 2 collecting a power-up, 3 hunting, 4 hiding, 5 I am in the middle,\n6 I am about to bomb next to you so move, 7 I am out of ammo, 8 I am in trouble.\nb = 1..4 for which quadrant you are in (1 NW, 2 NE, 3 SE, 4 SW), 5..8 for the same\nquadrant when you are already inside the middle 5x5.\nRead your partner's pair the same way and BELIEVE the position half even if the intent\nhalf looks like noise - if partner says 6, get off its row and column this turn."
+    }
+  },
+  {
+    "name": "pommerman-cornerman",
+    "run": "/bin/pommerman-player",
+    "env": {
+      "PLAYER_PROMPT": "Win by not dying, and by making the enemy die of the walls. Most bombers in this game\nkill themselves; you will not.\nRule one, absolute: if your own cell in \"danger\" shows any digit at all, order \"hide\".\nNothing else. Rule two: never order \"bomb\" or \"hunt\" unless \"danger\" shows at least two\n'.' cells you can reach in three steps in DIFFERENT directions. A dead end plus a bomb\nis a suicide.\nTurns 1 through 10: \"break\", staying inside your own quadrant, and take any power-up\nthat appears within about five cells - do not cross the board for one. You want range 3\nand two bombs by turn 10 and you want to still be alive.\nTurns 11 through 24: hold the mouth of your own corridor. Order \"hide\" whenever no\nenemy is within five cells, and \"hunt\" the moment one comes inside five. Let them walk\ninto your ground. If your partner's radio says it is in trouble, order \"follow\" for\nexactly one turn and then go back to holding.\nTurn 25 onward: \"go\" into the middle 5x5 (x and y between 3 and 7), take the cell with\nthe most exits, and from then on alternate \"hide\" and \"hunt\" - hide when both opponents\nare alive and more than three cells away, hunt the nearer one otherwise. The rings do\nhalf your work; you only have to outlive them.\nRADIO. Send [a, b] where a counts your bombs in hand plus one (so 1 means empty, 2\nmeans one bomb, and so on up to 6) and b is the number of living enemies you can see\nwithin four cells, plus one (1 = none nearby, 2 = one, 3 = both), except send b = 8\nwhen you are about to die and want your partner clear of you.\nRead the partner's a as \"can it help me right now\" and its b as \"is it in contact\".\nAn 8 in either half means get away from that bomber this turn."
+    },
+    "player": "ply_bac48eb1-662e-44f8-973d-f3e016dccf5d"
+  },
+  {
+    "name": "pommerman-sapper",
+    "run": "/bin/pommerman-player",
+    "env": {
+      "PLAYER_SCRIPTED": "sapper"
+    }
+  },
+  {
+    "name": "pommerman-camper",
+    "run": "/bin/pommerman-player",
+    "env": {
+      "PLAYER_SCRIPTED": "camper"
+    }
+  }
+]

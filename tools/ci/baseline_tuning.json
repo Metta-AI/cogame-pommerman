@@ -1,0 +1,8 @@
+{
+  "swept": "nim r --path:src tools/tune_baselines.nim",
+  "note": "The head-to-head sweep's pick, over four map seeds per cell. tests/test_pom_tuning.nim asserts the shipped DefaultBaselineParams still equal it, so a hand-edit of the defaults fails the build; ci.yml re-runs the tool with --check at the horizon it was tuned at.",
+  "bombEnemyRange": 2,
+  "powerupSearch": 8,
+  "dodgeHorizon": 6,
+  "campExits": 2
+}
