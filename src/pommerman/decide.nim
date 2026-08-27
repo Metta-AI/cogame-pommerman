@@ -202,9 +202,7 @@ proc turn*(
   ## Runs ONE decision turn and installs every seat's order. Returns the replay
   ## chat records this turn produced. Never raises: every failure path ends in
   ## a legal order and a legal radio pair.
-  let
-    budget = initDuration(milliseconds = max(1, sim.config.turnBudgetMs))
-    turnStart = getMonoTime()
+  let budget = initDuration(milliseconds = max(1, sim.config.turnBudgetMs))
   sim.turnIndex = turnIndex
   ## RADIO DELIVERY, step 2 of the turn: exactly one turn late, always,
   ## including when the partner fell back (a fallback still sends a pair).
@@ -259,6 +257,18 @@ proc turn*(
   if open.len > 0:
     engine.lastBatchStart = getMonoTime()
     engine.batchStarted = true
+
+  # The per-turn deadline starts HERE, after the rate floor -- `turnSpacingMs`
+  # is a floor on the interval between BATCH STARTS, not part of the window the
+  # two attempts share. Started before the wait, a 10 s spacing plus an 8 s
+  # attempt 1 was already past the 12 s budget, so the retry the design
+  # promises was skipped on exactly the turns that had waited. The wait itself
+  # stays bounded (sim_config clamps turnSpacingMs to <= 60 000) and it only
+  # runs when the previous batch started less than that ago, so a turn's calls
+  # and its spacing can never both be at their maximum: the period between
+  # batch starts is still max(turnSpacingMs, turnBudgetMs) plus the loop's own
+  # overhead.
+  let turnStart = getMonoTime()
 
   # --- up to two PARALLEL batches ------------------------------------------
   var attempt = 0
