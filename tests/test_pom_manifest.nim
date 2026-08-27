@@ -89,6 +89,12 @@ suite "pommerman manifest":
     check manifest["game"]["replay_viewer"]["bundle"].getStr() ==
       "static-replay-viewer"
     check not manifest.hasKey("replay_viewer")
+    ## ...and nothing DECLARED anywhere names a pod viewer path. The binary
+    ## still serves /client/replay for developers, exactly as the coworld-ctf
+    ## starter's server does, but the platform is never pointed at it:
+    ## coworld-release.yml hard-fails certification unless the static bundle
+    ## marker comes back.
+    check "/client/replay" notin $manifest
     ## the secret namespace must equal game.name EXACTLY (cooperative-hunting)
     check manifest["game"]["runnable"]["env"]["ANTHROPIC_API_KEY_URI"].getStr() ==
       "secret://coworld/" & GameName & "/anthropic_api_key"
