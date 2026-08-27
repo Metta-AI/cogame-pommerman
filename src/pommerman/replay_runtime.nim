@@ -8,7 +8,7 @@
 ## sides. That is what keeps the chain clean at the stop tick.
 
 import std/[json, strutils]
-import sim, replays
+import sim, replays, roster
 
 const
   TicksPerSecondBase* = TargetFps
@@ -211,6 +211,11 @@ proc seekTo*(player: var ReplayPlayer, sim: var SimServer, frame: int) =
   player.resetCursors()
   player.hashMismatchTick = -1
   sim = initSimServer(sim.config)
+  ## The spectator-side REAL policy names live in the replay's join and
+  ## register records, not in sim state, so a fresh SimServer has to be
+  ## re-seeded with them -- otherwise every seek silently reverts the scorebug
+  ## and the endcard to the anonymous in-game aliases.
+  sim.applySeatIdentities(player.data)
   while player.frame <= target:
     runFrame(player, sim)
   if player.hashMismatchTick < 0:

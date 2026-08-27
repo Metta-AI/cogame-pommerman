@@ -302,7 +302,7 @@
           }
         }
       }
-      fc.fillStyle = 'rgba(11,7,4,0.18)';
+      fc.fillStyle = 'rgba(11,7,4,0.34)';
       fc.fillRect(0, 0, geo.span, geo.span);
       // 1 px cell gridlines, so the grid reads with the HUD off
       fc.strokeStyle = 'rgba(242,232,216,0.07)';
@@ -329,6 +329,13 @@
               fc.fillStyle = '#4a3a2c';
               fc.fillRect(px, py, geo.cell, geo.cell);
             }
+            // Lift the rigid cells off the floor plate: the starter's wall
+            // tiles are nearly as dark as the darkened floor, so without this
+            // the lattice reads as texture rather than as wall.
+            fc.fillStyle = 'rgba(150,126,102,0.34)';
+            fc.fillRect(px, py, geo.cell, geo.cell);
+            fc.fillStyle = 'rgba(255,238,214,0.14)';
+            fc.fillRect(px, py, geo.cell, Math.max(1, Math.round(geo.cell / 8)));
             fc.strokeStyle = (ring >= 1 && ring <= maxRing)
               ? 'rgba(224,82,58,0.85)' : 'rgba(242,232,216,0.16)';
             fc.lineWidth = 1;

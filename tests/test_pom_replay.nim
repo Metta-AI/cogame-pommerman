@@ -212,6 +212,43 @@ suite "pommerman replay":
         seenHashes.add(record.value)
     check seenHashes.len > data.hashes.len div 2
 
+  test "a seek keeps the spectator-side real names":
+    ## `seekTo` re-derives from a FRESH SimServer, and the REAL policy names
+    ## live in the replay's join and register records rather than in sim state
+    ## -- so without re-seeding them every scrub silently reverted the scorebug
+    ## and the endcard to the anonymous in-game aliases, which is the
+    ## spectator half of the two-name-space rule going missing.
+    var config = testConfig(maxTicks = 48)
+    var engine = scriptedEngine(config)
+    var sim = initSimServer(config)
+    var state = initEpisodeState()
+    var writer = openReplayWriter("", config.configJson())
+    for seat in 0 ..< SeatCount:
+      sim.admitSeat(seat, "")
+      writer.writeJoin(0, seat, seatAliasOf(seat), "")
+      writer.writeChat(0, seat, registerRecord(
+        seat, "pommerman-firestarter", "llm", "sapper"))
+    while not state.finished and state.frame < 4000:
+      discard state.runEpisodeFrame(sim, engine, writer, 0)
+    state.finishEpisode(sim, writer)
+    var
+      data = parseReplayBytes(writer.bytes())
+      initialized = initReplayRuntime(data)
+      player = initialized.player
+      replayed = initialized.sim
+    replayed.applyJoinRecords(data)
+    for record in data.chats:
+      replayed.applyReplayChat(record.text)
+    check replayed.seatNames[0] == "pommerman-firestarter"
+    let llmTurnsBefore = replayed.llmTurns[0]
+    player.seekTo(replayed, player.maxFrame)
+    check replayed.seatNames[0] == "pommerman-firestarter"
+    check replayed.seatPolicyKind[0] == "llm"
+    ## the per-seat turn statistics are EPISODE totals, so they come back too
+    ## rather than resetting the scorebug's fallback glyph on every scrub
+    check replayed.llmTurns[0] == llmTurnsBefore
+    check replayed.registered[0]
+
   test "replay_summary is strict UTF-8 JSON":
     ## Every capped field filled to EXACTLY its cap with 4-byte emoji, then
     ## read back through the stdlib-only Python view of the bytes.

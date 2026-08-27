@@ -199,3 +199,15 @@ proc applyReplayChat*(sim: var SimServer, text: string) =
       sim.endReason = results{"reason"}.getStr(sim.endReason)
   else:
     discard
+
+proc applySeatIdentities*(sim: var SimServer, data: ReplayData) =
+  ## Re-seeds a FRESH SimServer with everything the replay's records carry that
+  ## sim state cannot re-derive: the REAL policy names, the policy kinds and
+  ## the per-seat turn statistics. `replay_runtime.seekTo` re-derives from a
+  ## fresh sim, so without this every scrub silently reverted the scorebug and
+  ## the endcard to the anonymous in-game aliases and dropped the fallback
+  ## glyph. Safe to call exactly once on a fresh sim -- the counters start at
+  ## zero, so nothing is double-counted.
+  sim.applyJoinRecords(data)
+  for record in data.chats:
+    sim.applyReplayChat(record.text)

@@ -64,9 +64,10 @@ proc pomLoadReplay(data: ptr uint8, length: cint): cint
     var initialized = initReplayRuntime(replayData, mismatchQuit = false)
     game = move(initialized.sim)
     player = move(initialized.player)
-    game.applyJoinRecords(replayData)
-    for record in replayData.chats:
-      game.applyReplayChat(record.text)
+    ## The same proc `replay_runtime.seekTo` calls after it resets the sim, so
+    ## the spectator-side names, policy kinds and per-seat statistics cannot
+    ## diverge between the first frame and a scrubbed one.
+    game.applySeatIdentities(replayData)
     tracker = initBroadcastTracker()
     runtimeLoaded = true
     let note = " (board " & $BoardSize & "x" & $BoardSize & ", " &
