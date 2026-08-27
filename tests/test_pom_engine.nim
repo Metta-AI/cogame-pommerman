@@ -99,6 +99,16 @@ suite "pommerman engine":
         check node["cause"].getStr() == "disconnected"
         inc disconnected
     check disconnected > 0
+    check disconnected == run.sim.turnsPlayed
+    ## `fallbackTurns` counts a POLICY that failed to answer, and the empty
+    ## seat never had one: it plays the scripted baseline from the first tick,
+    ## so its directives are `scripted`, not `fallback`. Conflating the two
+    ## would make an absent seat look like an LLM that timed out on every turn
+    ## in results.fallbackTurns, which is the number phase 60 reads. The fact
+    ## is carried instead by deadSeats[3], the closed failure payload above and
+    ## one `disconnected` record per turn -- all asserted here.
+    check run.sim.fallbackTurns[3] == 0
+    check run.sim.llmTurns[3] == 0
 
   test "an LLM seat with no credentials counts as a fallback, not a score":
     ## The client disables itself with no credentials, so every turn is a

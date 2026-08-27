@@ -591,4 +591,12 @@ suite "pommerman sim":
       inc ticks
     let elapsed = (getMonoTime() - started).inMilliseconds.int
     checkpoint("144 ticks in " & $elapsed & " ms")
-    check elapsed < 4000
+    ## The note's budget is "< 1 s in a release build"; ci.yml runs every test
+    ## in BOTH modes, and a debug build carries range/overflow checks and no
+    ## optimisation, so the bound is the release one where it applies. Measured
+    ## on this machine: 1-3 ms release, ~20 ms debug -- both bounds are two to
+    ## three orders of magnitude of headroom, not a tolerance to be widened.
+    when defined(release):
+      check elapsed < 1000
+    else:
+      check elapsed < 4000
