@@ -306,6 +306,16 @@ for key in ("names", "scores"):
 reason = results.get("reason") or results.get("end_reason")
 if reason is not None:
     print(f"episode end reason: {reason}")
+    # A `fault` is a HOST error: the episode was settled from the last good
+    # tick and the artifacts were still written, so every check above passes
+    # and the job would go green on a broken build. The design note requires
+    # this script to fail on it (ci.yml's replay-summary step asserts the same
+    # thing one step later; this is the gate at the source).
+    if str(reason) == "fault":
+        raise SystemExit(
+            f"episode ended with reason={reason}: "
+            f"{results.get('stopDetail') or results.get('stop_detail') or ''}"
+        )
 
 replay_path = work / "replay.json"
 if not replay_path.exists() or replay_path.stat().st_size == 0:
