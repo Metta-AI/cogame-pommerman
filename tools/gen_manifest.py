@@ -73,8 +73,8 @@ def game_config(**over):
         ("startAmmo", 1), ("maxAmmo", 5),
         ("startBlast", 2), ("maxBlast", 6),
         ("collapseTicks", [96, 120]), ("dodgeHorizon", 8),
-        ("attempt1Ms", 8000), ("retryMs", 3000),
-        ("turnBudgetMs", 12000), ("turnSpacingMs", 10000),
+        ("attempt1Ms", 12000), ("retryMs", 5000),
+        ("turnBudgetMs", 18000), ("turnSpacingMs", 10000),
         ("wallClockBudgetSeconds", 640), ("lobbyJoinTimeoutTicks", 2400),
         ("startWaitTicks", 24), ("gameOverTicks", 90),
         ("fastMode", True), ("showPlayerLabels", False),
@@ -129,18 +129,18 @@ config_schema = {
     "dodgeHorizon": {"type": "integer", "minimum": 1, "maximum": 16,
                      "default": 8},
     "turnBudgetMs": {"type": "integer", "minimum": 0, "maximum": 60000,
-                     "default": 12000},
+                     "default": 18000},
     "attempt1Ms": {"type": "integer", "minimum": 1000, "maximum": 30000,
-                   "default": 8000},
+                   "default": 12000},
     "retryMs": {"type": "integer", "minimum": 1000, "maximum": 30000,
-                "default": 3000},
+                "default": 5000},
     "turnSpacingMs": {"type": "integer", "minimum": 0, "maximum": 60000,
                       "default": 10000},
     "wallClockBudgetSeconds": {"type": "integer",
       "description": "The engine's own hard stop, in seconds. 640 is 53 "
                      "percent of the assumed 1200 s episode timeout, and the "
-                     "budget guard at elapsed > 616 s means the worst modelled "
-                     "settle is 649 s -- 54 percent, inside the 60 percent "
+                     "budget guard at elapsed > 604 s means the worst modelled "
+                     "settle is 642 s -- 54 percent, inside the 60 percent "
                      "target. Never above 640.",
       "minimum": 10, "maximum": 640, "default": 640},
     "lobbyJoinTimeoutTicks": {"type": "integer", "minimum": 1, "default": 2400},

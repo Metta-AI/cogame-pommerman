@@ -297,7 +297,7 @@ proc turn*(
     let started = getMonoTime()
     # curly hands the deadline to CURLOPT_TIMEOUT, whose granularity is WHOLE
     # SECONDS, so this conversion FLOORS. sim_config rejects a sub-second
-    # value, so the floor is an identity: 8000 -> 8 s inside turnBudgetMs 12 s.
+    # value, so the floor is an identity: 12000 -> 12 s inside turnBudgetMs 18 s.
     let responses = engine.client.curl.makeRequests(
       batch, max(1, deadlineMs div 1000))
     let latency = (getMonoTime() - started).inMilliseconds.int

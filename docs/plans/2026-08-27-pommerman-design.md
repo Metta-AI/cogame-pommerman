@@ -1885,3 +1885,23 @@ does, and why.
     (`collapseTicks[0] - 8`) rather than the literal 88; and the bomber chips, the floor bake and
     the wall composite are baked in `client/broadcast_core.js` rather than in a `rig_art.nim`,
     which is why no pixie import exists outside the server.
+
+### Retuned after the 0.1.0 hosted rounds
+
+23. **`attempt1Ms` is 12 000, `retryMs` 5 000 and `turnBudgetMs` 18 000 — not 8 000 / 3 000 /
+    12 000.** The note's §Turn structure numbers were guesses made before any hosted episode
+    existed. Measured over the league's round-3 episode
+    (`ereq_51dda9f7-4c41-48a6-b9ae-05022f0e329a`): the Bedrock sidecar answered **81 of 81** calls
+    HTTP 200 with zero throttling, at p50 5 991 ms, **p90 7 672 ms** and max 9 758 ms — so
+    `attempt1Ms = 8 000` sat *below the p90* and ~9 % of attempt-1 calls timed out on a completely
+    healthy provider. Round 2 reproduces it (80/80 HTTP 200, p50 6 192 ms, max 11 847 ms). The new
+    attempt-1 deadline clears the observed maximum, and the retry gets 5 s instead of 3 s so a
+    genuine second attempt has room to land. `turnSpacingMs` stays 10 000, so the request rate is
+    unchanged at 4 × 60/10 = 24 req/min; `wallClockBudgetSeconds` stays 640.
+    The budget guard's threshold is derived, not written down — `elapsed + 2 × turnBudget >
+    wallClockBudgetSeconds` — so it moves with `turnBudgetMs` from `elapsed > 616 s` to
+    **`elapsed > 604 s`**, and the worst modelled settle moves from 649 s to **≈ 642 s = 54 % of
+    the assumed 1200 s episode timeout**, still inside the 60 % pin that
+    `tests/test_pom_manifest.nim` asserts. Pinned together in `sim_config.nim:23-27`, both
+    variants' and the certification fixture's `game_config`, the manifest `config_schema`
+    defaults, `docs/PROTOCOL.md` and `docs/RULES.md`.

@@ -198,19 +198,19 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 60000,
-          "default": 12000
+          "default": 18000
         },
         "attempt1Ms": {
           "type": "integer",
           "minimum": 1000,
           "maximum": 30000,
-          "default": 8000
+          "default": 12000
         },
         "retryMs": {
           "type": "integer",
           "minimum": 1000,
           "maximum": 30000,
-          "default": 3000
+          "default": 5000
         },
         "turnSpacingMs": {
           "type": "integer",
@@ -220,7 +220,7 @@
         },
         "wallClockBudgetSeconds": {
           "type": "integer",
-          "description": "The engine's own hard stop, in seconds. 640 is 53 percent of the assumed 1200 s episode timeout, and the budget guard at elapsed > 616 s means the worst modelled settle is 649 s -- 54 percent, inside the 60 percent target. Never above 640.",
+          "description": "The engine's own hard stop, in seconds. 640 is 53 percent of the assumed 1200 s episode timeout, and the budget guard at elapsed > 604 s means the worst modelled settle is 642 s -- 54 percent, inside the 60 percent target. Never above 640.",
           "minimum": 10,
           "maximum": 640,
           "default": 640
@@ -605,9 +605,9 @@
           120
         ],
         "dodgeHorizon": 8,
-        "attempt1Ms": 8000,
-        "retryMs": 3000,
-        "turnBudgetMs": 12000,
+        "attempt1Ms": 12000,
+        "retryMs": 5000,
+        "turnBudgetMs": 18000,
         "turnSpacingMs": 10000,
         "wallClockBudgetSeconds": 640,
         "lobbyJoinTimeoutTicks": 2400,
@@ -665,9 +665,9 @@
           80
         ],
         "dodgeHorizon": 8,
-        "attempt1Ms": 8000,
-        "retryMs": 3000,
-        "turnBudgetMs": 12000,
+        "attempt1Ms": 12000,
+        "retryMs": 5000,
+        "turnBudgetMs": 18000,
         "turnSpacingMs": 10000,
         "wallClockBudgetSeconds": 640,
         "lobbyJoinTimeoutTicks": 2400,
@@ -737,9 +737,9 @@
         120
       ],
       "dodgeHorizon": 8,
-      "attempt1Ms": 8000,
-      "retryMs": 3000,
-      "turnBudgetMs": 12000,
+      "attempt1Ms": 12000,
+      "retryMs": 5000,
+      "turnBudgetMs": 18000,
       "turnSpacingMs": 0,
       "wallClockBudgetSeconds": 240,
       "lobbyJoinTimeoutTicks": 600,

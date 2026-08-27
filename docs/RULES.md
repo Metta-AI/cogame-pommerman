@@ -71,9 +71,9 @@ Per command turn `T`, in this order:
 2. **Radio delivery** — each seat's observation carries the pair its **partner** sent with its
    turn `T−1` order (`null` on turn 1). Exactly one turn late, always, including when the partner
    fell back. The opposing team's pairs are never in any observation.
-3. All four seats' LLM requests go out as **one parallel batch**, attempt-1 deadline 8 s.
+3. All four seats' LLM requests go out as **one parallel batch**, attempt-1 deadline 12 s.
 4. Every seat that timed out, errored or returned nothing usable is retried **once**, again as
-   one batch, 3 s.
+   one batch, 5 s.
 5. A seat still without a usable reply gets the **`sapper`** scripted order and a `fallback`
    record.
 6. Orders are installed. A seat that names no `order` keeps last turn's; an invalid field is

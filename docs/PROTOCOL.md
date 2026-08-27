@@ -82,12 +82,12 @@ at most `4 × 36 × 2 = 288` an episode including retries.
 
 | Bound | Value |
 |---|---|
-| `attempt1Ms` | 8 000 |
-| `retryMs` | 3 000 |
-| `turnBudgetMs` | 12 000 (a monotonic deadline around the whole turn) |
+| `attempt1Ms` | 12 000 |
+| `retryMs` | 5 000 |
+| `turnBudgetMs` | 18 000 (a monotonic deadline around the whole turn) |
 | `turnSpacingMs` | 10 000 (a wall-clock floor between batch STARTS → 24 req/min) |
 | `wallClockBudgetSeconds` | 640 (the engine's own hard stop) |
-| budget guard | fires at `elapsed + 2 × turnBudget > 640`, i.e. `elapsed > 616 s` |
+| budget guard | fires at `elapsed + 2 × turnBudget > 640`, i.e. `elapsed > 604 s` |
 
 ## Reply schema
 

@@ -183,7 +183,7 @@ suite "pommerman engine":
     ## names the turn, and the episode still ends `complete` -- not `deadline`.
     var config = testConfig(maxTicks = 48)
     config.wallClockBudgetSeconds = 10
-    config.turnBudgetMs = 12000
+    config.turnBudgetMs = 18000
     var engine = initDecisionEngine(config)
     for seat in 0 ..< SeatCount:
       engine.seats[seat].isLlm = true
