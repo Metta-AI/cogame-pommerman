@@ -206,7 +206,14 @@ proc camperDirective*(
       fromReply: true)
     return
   if me.ammo > 0 and sim.adjacentToWood(seat):
-    let danger = sim.dangerNow(params.dodgeHorizon)
+    ## The CONTROLLER's horizon, not the baseline's copy of it: control.nim's
+    ## survival override and escapeExistsAfterBomb both read
+    ## sim.config.dodgeHorizon, so reading params here would let a hosted
+    ## game_config that moves dodgeHorizon leave camper judging its exits over
+    ## a different number of ticks than the controller that executes the order.
+    ## The sweep sets config.dodgeHorizon from params before every episode
+    ## (tools/tune_baselines.nim), so the tuning grid is unchanged.
+    let danger = sim.dangerNow()
     var safeExits = 0
     for offset in DirOffsets:
       let
