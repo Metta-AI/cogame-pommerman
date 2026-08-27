@@ -237,6 +237,52 @@ suite "pommerman control and baselines":
       sim.resolveTick(idle)
       check not sim.bombers[0].alive
 
+  test "a kick with nothing to shove is exactly `hide`":
+    ## The Step C table says a `kick` that cannot fire -- no `kick` power-up, or
+    ## no bomb in that direction -- behaves as `hide`. It does, and from a safe
+    ## cell `hide` IS standing still: chooseAction only reaches Step C when the
+    ## bomber's own cell is out of danger (Step B, the survival override,
+    ## returns first otherwise), and hideTarget scores every cell that is never
+    ## dangerous inside the horizon identically and breaks the tie by FEWEST
+    ## STEPS -- which the bomber's own cell wins at zero. This test pins the
+    ## equivalence rather than the resulting action, so a change to either
+    ## branch that pulls them apart is red here.
+    var rng = initRand(8080)
+    var degraded = 0
+    for iteration in 0 ..< 200:
+      var sim = playingSim(seed = 3 + iteration mod 40)
+      sim.tick = 1 + rng.rand(0 .. 100)
+      for seat in 0 ..< SeatCount:
+        sim.bombers[seat].ammo = rng.rand(0 .. 3)
+        sim.bombers[seat].kick = rng.rand(0 .. 1) == 1
+      for _ in 0 .. rng.rand(0 .. 3):
+        let
+          bx = 1 + rng.rand(0 .. 8)
+          by = 1 + rng.rand(0 .. 8)
+        if isPassage(sim.board, bx, by) and bombIndexAt(sim.bombs, bx, by) < 0:
+          discard sim.addBomb(rng.rand(0 ..< SeatCount), bx, by,
+            fuse = 1 + rng.rand(0 .. 6), blast = 2 + rng.rand(0 .. 2))
+      let danger = sim.dangerNow()
+      for seat in 0 ..< SeatCount:
+        let me = sim.bombers[seat]
+        if not me.alive:
+          continue
+        if danger.firstDangerAt(me.x, me.y) >= 0:
+          continue                      ## Step B owns this state, not Step C
+        for dir in 0 ..< DirOffsets.len:
+          let offset = DirOffsets[dir]
+          if me.kick and
+              bombIndexAt(sim.bombs, me.x + offset.dx, me.y + offset.dy) >= 0:
+            continue                    ## this kick really fires
+          inc degraded
+          sim.setOrder(seat, okKick, dir = dir)
+          let kicked = chooseAction(sim, seat, danger)
+          sim.setOrder(seat, okHide)
+          checkpoint("iteration " & $iteration & " seat " & $seat &
+            " dir " & DirNames[dir])
+          check kicked == chooseAction(sim, seat, danger)
+    check degraded > 500
+
   test "reply validation":
     var sim = playingSim()
     let previous = sapperDirective(sim, 0)
