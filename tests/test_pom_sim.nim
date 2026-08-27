@@ -449,8 +449,8 @@ suite "pommerman sim":
     var rng = initRand(31337)
     var sim = playingSim()
     var engine = initDecisionEngine(sim.config)
+    var sent: array[SeatCount, RadioPair]
     for turn in 1 .. 500:
-      var sent: array[SeatCount, RadioPair]
       sim.mailbox.deliver()
       for seat in 0 ..< SeatCount:
         let inbox = sim.mailbox.receive(teamOfSeat(seat), seat)

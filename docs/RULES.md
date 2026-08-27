@@ -131,7 +131,7 @@ ring 1 becomes rigid; at tick **120** ring 2 goes. Play ends inside the 5 × 5 b
 | `follow` | moves to the partner; within 2 cells, behaves as `break` | as `break` |
 
 **The survival override runs ahead of the order.** If the bomber's own cell is dangerous within
-the dodge horizon (6 ticks), the controller ignores the order and takes the first step of the
+the dodge horizon (8 ticks), the controller ignores the order and takes the first step of the
 shortest path to a cell safe for the whole horizon. **It is not a shield:** a bomber boxed into a
 dead end still dies, which is exactly how Pommerman is won.
 

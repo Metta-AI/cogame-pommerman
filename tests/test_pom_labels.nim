@@ -3,7 +3,7 @@
 
 import std/[algorithm, json, sequtils, strutils, unittest]
 import helpers
-import pommerman/[labels, decide]
+import pommerman/[labels, decide, llm]
 
 suite "pommerman labels":
 

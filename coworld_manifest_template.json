@@ -192,7 +192,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 16,
-          "default": 6
+          "default": 8
         },
         "turnBudgetMs": {
           "type": "integer",
@@ -604,7 +604,7 @@
           96,
           120
         ],
-        "dodgeHorizon": 6,
+        "dodgeHorizon": 8,
         "attempt1Ms": 8000,
         "retryMs": 3000,
         "turnBudgetMs": 12000,
@@ -664,7 +664,7 @@
           64,
           80
         ],
-        "dodgeHorizon": 6,
+        "dodgeHorizon": 8,
         "attempt1Ms": 8000,
         "retryMs": 3000,
         "turnBudgetMs": 12000,
@@ -736,7 +736,7 @@
         96,
         120
       ],
-      "dodgeHorizon": 6,
+      "dodgeHorizon": 8,
       "attempt1Ms": 8000,
       "retryMs": 3000,
       "turnBudgetMs": 12000,

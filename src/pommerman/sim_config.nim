@@ -20,7 +20,7 @@ proc defaultGameConfig*(): GameConfig =
     startBlast: 2,
     maxBlast: 6,
     collapseTicks: @[96, 120],
-    dodgeHorizon: 6,
+    dodgeHorizon: 8,
     turnBudgetMs: 12000,
     turnSpacingMs: 10000,
     attempt1Ms: 8000,
@@ -41,10 +41,10 @@ proc defaultGameConfig*(): GameConfig =
 proc clampConfig*(config: var GameConfig) =
   ## Every bound the sim relies on, applied in one place. A hosted config is
   ## repaired, never rejected: an episode that refuses to start scores nobody.
+  # There is no other seating. num_agents is pinned to 4 in every variant and
+  # in the certification fixture, and the schema's minimum == maximum == 4, so
+  # a hosted config that says otherwise is repaired here.
   config.numAgents = SeatCount
-    ## There is no other seating. num_agents is pinned to 4 in every variant
-    ## and in the certification fixture, and the schema's minimum == maximum
-    ## == 4, so a hosted config that says otherwise is repaired here.
   config.minPlayers = max(0, min(config.numAgents, config.minPlayers))
   config.maxTicks = max(4, min(2000, config.maxTicks))
   config.maxGames = max(1, min(8, config.maxGames))
@@ -64,8 +64,8 @@ proc clampConfig*(config: var GameConfig) =
   config.collapseTicks = rings
   config.turnBudgetMs = max(0, min(60000, config.turnBudgetMs))
   config.turnSpacingMs = max(0, min(60000, config.turnSpacingMs))
-  ## curly floors CURLOPT_TIMEOUT to whole SECONDS, so a sub-second deadline
-  ## would silently become zero. Both attempt deadlines are floored at 1000 ms.
+  # curly floors CURLOPT_TIMEOUT to whole SECONDS, so a sub-second deadline
+  # would silently become zero. Both attempt deadlines are floored at 1000 ms.
   config.attempt1Ms = max(1000, min(30000, config.attempt1Ms))
   config.retryMs = max(1000, min(30000, config.retryMs))
   config.wallClockBudgetSeconds =

@@ -8,7 +8,7 @@
 ## lives in the observation builder (decide.nim), not in the renderer.
 
 import std/json
-import sim_types, board, bombs, sim_state
+import sim_types, board, bombs, radio, sim_state
 
 const
   BomberSpriteBase* = 1000

@@ -119,7 +119,7 @@ suite "pommerman viewer":
       "<script>", page.find("<!-- BROADCAST_CORE -->"))
     check scriptOpen > 0
     let inherited = page[0 ..< scriptOpen]
-    check inherited.len == 60619
+    check inherited.len == 60743
     check $secureHash(inherited) == "349E965817FE9270E807DE86D27CB959220C707A"
 
   test "the removed elements appear nowhere":

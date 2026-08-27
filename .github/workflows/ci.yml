@@ -285,7 +285,12 @@ jobs:
           assert summary['tickCount'] > 0, summary
           assert len(summary['directives']) > 0, summary
           assert len(summary['radio']) > 0, summary
-          assert all(b > 0 for b in summary['results']['bombsPlaced']), summary
+          # The smoke plays sapper x2 against camper x2 with no API key, and
+          # camper only bombs an adjacent enemy or a wall it has two safe exits
+          # from -- so a per-seat "> 0" would be asserting camper's taste, not
+          # the writer. What must hold is that the episode really played.
+          assert sum(summary['results']['bombsPlaced']) > 0, summary
+          assert summary['results']['endRule'] in ('wipe', 'tickCap'), summary
           print('replay summary ok:', summary['protocol'],
                 summary['results']['reason'], summary['tickCount'], 'frames')
           PYCHECK

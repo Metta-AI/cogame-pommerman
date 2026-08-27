@@ -47,7 +47,7 @@ proc chooseActions*(sim: SimServer, danger: DangerMap): array[SeatCount, Action]
       if sim.bombers[seat].alive: chooseAction(sim, seat, danger)
       else: acStay
 
-proc applyCollapse(sim: var SimServer, ring: int) =
+proc applyCollapse*(sim: var SimServer, ring: int) =
   ## Step 2. Done FIRST so nothing else acts on a cell that is about to be
   ## wall: a living bomber there dies `crushed`, a bomb there is removed
   ## without detonating, a power-up there is destroyed, a flame there clears.

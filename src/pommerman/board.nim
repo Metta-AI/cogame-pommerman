@@ -26,19 +26,16 @@ type
     item*: array[BoardCells, ItemKind]      ## the item lying on the cell
     hidden*: array[BoardCells, ItemKind]    ## what a wooden wall is hiding
     flame*: array[BoardCells, int]          ## remaining flame life, 0 = none
-    flameOwner*: array[BoardCells, int]     ## seat whose bomb lit it, or -1;
-                                            ## NOT hashed -- it is re-derived
-                                            ## identically on playback and the
-                                            ## hash pins terrain/item/life
+    # flameOwner: the seat whose bomb lit the cell, or -1. NOT hashed -- it is
+    # re-derived identically on playback, and the hash pins terrain, item and
+    # flame life per cell.
+    flameOwner*: array[BoardCells, int]
     collapsedRings*: int
 
 const
-  SpawnCells*: array[SeatCount, Cell] = [
-    (1, 1),    ## seat 0, RED-1,  NW
-    (9, 1),    ## seat 1, BLUE-1, NE
-    (9, 9),    ## seat 2, RED-2,  SE
-    (1, 9)     ## seat 3, BLUE-2, SW
-  ]
+  # seat 0 RED-1 NW, seat 1 BLUE-1 NE, seat 2 RED-2 SE, seat 3 BLUE-2 SW --
+  # partners on a diagonal, as upstream.
+  SpawnCells*: array[SeatCount, Cell] = [(1, 1), (9, 1), (9, 9), (1, 9)]
 
   TerrainChars* = ['#', 'W', '.']
   ItemChars* = ['.', 'e', 'r', 'k']

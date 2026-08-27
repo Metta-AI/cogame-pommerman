@@ -175,8 +175,8 @@ proc parseSeatDirective*(
   seat: int,
   previous: SeatDirective,
   board: Board,
-  livingEnemy: proc (target: int): bool {.closure.},
-  nearestEnemy: proc (): int {.closure.}
+  livingEnemies: set[uint8],
+  nearestEnemy: int
 ): SeatDirective =
   ## Turns one parsed reply into a legal directive, REPAIRING every field the
   ## schema bounds rather than rejecting the reply:
@@ -186,7 +186,7 @@ proc parseSeatDirective*(
   ## * an unknown verb -> the seat's PREVIOUS verb;
   ## * `go` coordinates -> clamped into [0, 10], then retargeted to the
   ##   nearest passable cell if they name a wall;
-  ## * `hunt` on an unmatched or dead alias -> the nearest living enemy;
+  ## * `hunt` on an alias that is not in `livingEnemies` -> `nearestEnemy`;
   ## * `kick` with no direction -> the seat behaves as `hide` (control.nim);
   ## * `radio` missing, the wrong length or non-numeric -> this seat's
   ##   PREVIOUS pair; each integer clamped into [1, 8];
@@ -252,11 +252,11 @@ proc parseSeatDirective*(
   of okHunt:
     let named = parseSeatAlias(entry{"target"}.getStr())
     if named >= 0 and teamOfSeat(named) != teamOfSeat(seat) and
-        livingEnemy(named):
+        uint8(named) in livingEnemies:
       order.target = named
     else:
       inc result.rejected
-      order.target = nearestEnemy()
+      order.target = nearestEnemy
   of okKick:
     let dir = parseDir(entry{"dir"}.getStr())
     if dir.ok:

@@ -33,14 +33,17 @@ const
     # dodgeHorizon: how many ticks ahead the survival override looks.
     # campExits: how many safe orthogonal neighbours camper insists on before
     #   it will lay a bomb at all.
-    bombEnemyRange: 2,
-    powerupSearch: 8,
-    dodgeHorizon: 6,
+    bombEnemyRange: 3,
+    powerupSearch: 4,
+    dodgeHorizon: 8,
     campExits: 2
   )
-    ## Not guessed: tools/tune_baselines.nim sweeps the four head to head and
-    ## tools/ci/baseline_tuning.json records the pick;
-    ## tests/test_pom_tuning.nim asserts the shipped defaults still equal it.
+    ## Not guessed, and NOT the design note's proposal: tools/tune_baselines.nim
+    ## swept the four head to head over a 54-cell grid x four map draws and
+    ## picked (3, 4, 8, 2) at 623 against the note's (2, 8, 6, 2) at 508.
+    ## tools/ci/baseline_tuning.json records the swept pick,
+    ## tests/test_pom_tuning.nim asserts the shipped defaults still equal it,
+    ## and ci.yml re-runs the sweep with --check. Recorded as a design errata.
 
   DefaultBaseline* = blSapper
     ## Anything unrecognised is the published default (the starter's rule).

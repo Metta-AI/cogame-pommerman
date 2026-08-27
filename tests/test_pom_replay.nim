@@ -298,9 +298,9 @@ suite "pommerman replay":
     ## downloaded from the `smoke-replay` artifact and committed -- so it is a
     ## real, current-format episode of this game rather than a hand-written
     ## file that drifts from the writer.
-    if seen == 0:
-      ## Populated in the commit that lands the fixture: `ci.yml`'s docker-smoke
-      ## job uploads the replay it produced as the `smoke-replay` artifact, and
-      ## that file -- a real, current-format episode of this game rather than a
-      ## hand-written one that drifts from the writer -- is what is committed.
-      checkpoint("no committed replay fixture yet")
+    ## The committed fixture is a real episode of the CERTIFICATION FIXTURE's
+    ## own config -- sapper x2 against camper x2, recorded through
+    ## `episode.runHeadlessEpisode`, the same proc the live server drives -- so
+    ## it cannot drift from the writer the way a hand-written file would.
+    check seen >= 1
+    check repoFileExists("tests/replays/pommerman.replay")

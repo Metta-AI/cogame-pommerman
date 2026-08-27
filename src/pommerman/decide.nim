@@ -294,17 +294,22 @@ proc turn*(
     var stillOpen: seq[int]
     for position, seat in open:
       var cause = "parse_error"
-      let captured = seat
+      ## Precomputed rather than passed as closures: Nim cannot capture a
+      ## `var` parameter (`sim`) in a closure, and the validator only needs
+      ## these two facts about the world.
+      var livingEnemies: set[uint8]
+      for other in 0 ..< SeatCount:
+        if teamOfSeat(other) != teamOfSeat(seat) and sim.bombers[other].alive:
+          livingEnemies.incl(uint8(other))
+      let near = sim.nearestEnemy(seat)
+      let fallbackTarget = (if near >= 0: near else: (seat + 1) mod SeatCount)
       try:
         let text = engine.client.textOf(
           responses[position].response, responses[position].error,
           batch[position].url)
         var directive = parseSeatDirective(
           extractJsonObject(text), seat, sim.directives[seat], sim.board,
-          proc (target: int): bool = sim.bombers[target].alive,
-          proc (): int =
-            let near = sim.nearestEnemy(captured)
-            if near >= 0: near else: partnerOfSeat(captured))
+          livingEnemies, fallbackTarget)
         directive.source = dsLlm
         directive.latencyMs = latency
         engine.notes[seat] = directive.notes

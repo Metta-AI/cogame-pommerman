@@ -240,11 +240,11 @@ suite "pommerman control and baselines":
   test "reply validation":
     var sim = playingSim()
     let previous = sapperDirective(sim, 0)
-    proc living(target: int): bool = sim.bombers[target].alive
-    proc nearest(): int = sim.nearestEnemy(0)
+    var livingEnemies: set[uint8] = {1'u8, 3'u8}
+    let nearest = sim.nearestEnemy(0)
 
     proc parse(node: JsonNode): SeatDirective =
-      parseSeatDirective(node, 0, previous, sim.board, living, nearest)
+      parseSeatDirective(node, 0, previous, sim.board, livingEnemies, nearest)
 
     block accepted:
       let directive = parse(parseJson("""{
@@ -274,11 +274,9 @@ suite "pommerman control and baselines":
     block deadHuntTargetRetargets:
       var dead = playingSim()
       dead.bombers[1].alive = false
-      proc livingDead(target: int): bool = dead.bombers[target].alive
-      proc nearestDead(): int = dead.nearestEnemy(0)
       let directive = parseSeatDirective(
         parseJson("""{"order": {"verb": "hunt", "target": "BLUE-1"}}"""),
-        0, previous, dead.board, livingDead, nearestDead)
+        0, previous, dead.board, {3'u8}, dead.nearestEnemy(0))
       check directive.order.kind == okHunt
       check directive.order.target == 3
       check directive.rejected == 1

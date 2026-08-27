@@ -22,9 +22,10 @@ type
     blast*: int       ## copied from the owner at placement, never updated
     owner*: int       ## seat index
     velocity*: Velocity
-    placedTick*: int  ## the tick it was laid on; its fuse does not tick that
-                      ## tick, so a bomb laid at t detonates at exactly
-                      ## t + bombFuse (upstream's own off-by-one)
+    # placedTick: the tick the bomb was laid on. Its fuse does not tick on
+    # that tick, so a bomb laid at t detonates at exactly t + bombFuse --
+    # upstream's own off-by-one, and what docs/RULES.md states.
+    placedTick*: int
 
   DangerMap* = object
     ## `unsafe[t * BoardCells + cell]` is true when that cell is lethal at tick
@@ -34,14 +35,10 @@ type
     first*: array[BoardCells, int]
 
 const
-  DirOffsets*: array[4, tuple[dx, dy: int]] = [
-    (0, -1),   ## up
-    (0, 1),    ## down
-    (-1, 0),   ## left
-    (1, 0)     ## right
-  ]
-    ## The FIXED direction order every tie in this game breaks by:
-    ## up, down, left, right, then stay.
+  # The FIXED direction order every tie in this game breaks by: up, down,
+  # left, right, then stay.
+  DirOffsets*: array[4, tuple[dx, dy: int]] =
+    [(0, -1), (0, 1), (-1, 0), (1, 0)]
   DirNames* = ["up", "down", "left", "right"]
 
 func velocityOfDir*(dir: int): Velocity {.inline.} =

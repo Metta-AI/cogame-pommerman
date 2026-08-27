@@ -126,7 +126,7 @@ proc bfsStep*(
       bestDir = firstDir[cell]
       bestDist = d
       bestSteps = dist[cell]
-  (false, bestDir, bestSteps)
+  result = (false, bestDir, bestSteps)
 
 proc escapeStep*(
   sim: SimServer, seat: int, danger: DangerMap
@@ -199,7 +199,7 @@ proc escapeStep*(
     if value > bestWhen:
       bestWhen = value
       bestDir = dir
-  (false, bestDir)
+  result = (false, bestDir)
 
 proc escapeExistsAfterBomb*(sim: SimServer, seat: int): bool =
   ## "An escape exists": after hypothetically placing the bomb, the Step-B
