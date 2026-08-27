@@ -1858,3 +1858,30 @@ does, and why.
     spectator got no `turn`, `order`, `radio`, `say` or `fallback` line. The frame now returns the
     records it wrote and `server.nim` passes them, so live and playback build the feed from one
     vocabulary. Hosted spectating is still the static replay bundle only.
+
+### The remaining declared deltas
+
+19. **`PlaybackSpeeds` is `[1, 2, 4, 8]`, without the note's `0.5`.**
+    `client/chrome_common.js` is carried from the starter byte for byte and its speed→command map
+    has no half-speed entry, so a `0.5` chip would render and then do nothing.
+    `sim_types.nim:56`; `wire_constants.nim` emits the array; `replay_runtime.applyCommand` maps
+    `'1','2','4','8'` to indices 0-3.
+20. **The art filenames are the pommerman ones.**
+    `data/{bomber_red,bomber_blue,bomber_red_crown,bomber_blue_crown,bomb,powerup_range,
+    powerup_kick,arena_floor}.png`, with the starter's `soldier_red.png` / `soldier_blue.png` kept
+    byte-identical as the fallback (`broadcast_core.js` `withFallback(...)`), so a missing derived
+    sprite degrades to real art rather than to a coloured square. No `paint*`/`spray*`/`shield*`
+    filename survives, which is what lets the forbidden-word sweep in
+    `tests/test_pom_endcard_labels.nim` pass.
+21. **A bomb's fuse does not tick on the tick it was placed.** `sim.nim:187-189` skips the
+    decrement when `placedTick == tick`, so a bomb laid at `t` reaches `fuse == 0` at exactly
+    `t + bombFuse` — which is what `docs/RULES.md` and the system prompt's "8-tick fuse" both
+    promise. Without the skip the same bomb would detonate a tick early and every hand-worked
+    example in the note would be off by one.
+22. **The rest of the declared deltas are as the note's own delta list describes them** and are
+    listed here only so this section is the single place to look: `parseSeatDirective` takes
+    values (`livingEnemies: set[uint8]`, `nearestEnemy: int`) rather than closures, because Nim
+    cannot capture a `var` parameter; the sapper's inward-march tick is derived
+    (`collapseTicks[0] - 8`) rather than the literal 88; and the bomber chips, the floor bake and
+    the wall composite are baked in `client/broadcast_core.js` rather than in a `rig_art.nim`,
+    which is why no pixie import exists outside the server.
