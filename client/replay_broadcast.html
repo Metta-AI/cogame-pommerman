@@ -1886,44 +1886,57 @@ button.beat-marker {
    the words abbreviated. Only the first column ellipsises: it holds the
    seat's alias and its REAL policy name, which is the one string that can be
    arbitrarily long. */
+/* The selectors are #endcard-qualified ON PURPOSE: the inherited page already
+   styles `#endcard .ec-thead` with a five-column grid sized for the starter's
+   own K / D / Clstr / Cap headings, and a bare `.ec-thead` here loses to it on
+   specificity -- which is why widening the panel alone left BOMBS and WOOD
+   still touching. */
 #endcard .ec-team { width: calc(272 * var(--u)); }
-.ec-thead, .ec-trow {
+#endcard .ec-thead,
+#endcard .ec-trow {
   display: grid;
-  grid-template-columns: 1.3fr 0.8fr 0.85fr 0.75fr 0.85fr;
-  gap: calc(4 * var(--u));
+  grid-template-columns: 1.25fr 0.8fr 0.85fr 0.75fr 0.9fr;
+  gap: calc(5 * var(--u));
+  align-items: center;
   white-space: nowrap;
 }
-.ec-thead span:first-child,
-.ec-trow span:first-child { overflow: hidden; text-overflow: ellipsis; }
-.ec-thead {
+#endcard .ec-thead span:first-child,
+#endcard .ec-trow span:first-child { overflow: hidden; text-overflow: ellipsis; }
+#endcard .ec-thead span:not(:first-child),
+#endcard .ec-trow span:not(:first-child) { text-align: center; }
+#endcard .ec-thead {
+  font-family: var(--finefont);
   font-size: calc(7.5 * var(--u));
   color: var(--paper-dim);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   margin-top: calc(4 * var(--u));
+  border-bottom: 1px solid rgba(242, 232, 216, 0.18);
+  padding-bottom: calc(3 * var(--u));
 }
-.ec-trow {
+#endcard .ec-trow {
+  font-family: var(--pixfont);
   font-size: calc(9 * var(--u));
   font-variant-numeric: tabular-nums;
 }
-.ec-tname {
+#endcard .ec-tname {
   font-family: var(--pixfont);
   font-size: calc(14 * var(--u));
   letter-spacing: 0.1em;
 }
-.ec-tfoot {
+#endcard .ec-tfoot {
   display: flex;
   align-items: baseline;
   gap: calc(6 * var(--u));
   margin-top: calc(4 * var(--u));
 }
-.ec-tfoot .fl-cap {
+#endcard .ec-tfoot .fl-cap {
   font-size: calc(8 * var(--u));
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--paper-dim);
 }
-.ec-tfoot .fl-num {
+#endcard .ec-tfoot .fl-num {
   font-family: var(--pixfont);
   font-size: calc(18 * var(--u));
   font-variant-numeric: tabular-nums;
