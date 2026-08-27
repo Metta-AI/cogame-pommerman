@@ -333,8 +333,12 @@ proc turn*(
           cause = "throttled"
         result.add(fallbackRecord(
           turnIndex, seat, attempt + 1, cause, error.msg))
+        ## A failed ATTEMPT is not a fallback, and must not say it is: phase 60
+        ## greps the hosted log for "falling back" to find real fallbacks, and
+        ## a retry that then succeeds cost the episode nothing.
         echo "pommerman llm: seat ", seat, " attempt ", attempt + 1,
-          " failed, falling back if it fails again: ", error.msg
+          (if attempt == 0: " failed, will retry: "
+           else: " failed, out of attempts: "), error.msg
         stillOpen.add(seat)
     open = stillOpen
     inc attempt

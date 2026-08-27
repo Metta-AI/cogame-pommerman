@@ -1905,3 +1905,10 @@ does, and why.
     `tests/test_pom_manifest.nim` asserts. Pinned together in `sim_config.nim:23-27`, both
     variants' and the certification fixture's `game_config`, the manifest `config_schema`
     defaults, `docs/PROTOCOL.md` and `docs/RULES.md`.
+24. **The attempt-1 notice says "will retry", not "falling back if it fails again".** Phase 60
+    greps the hosted game log for `falling back`, and the *retry* notice carried the phrase while
+    announcing something that is not a fallback — 10 of the 11 matches in the round-3 log were
+    retries that then succeeded. The notice now reads
+    `seat N attempt 1 failed, will retry: <error>` (and `… out of attempts: <error>` on the second
+    attempt). The GENUINE fallback line, `seat N falling back to <baseline> (<cause>) on turn T`,
+    is unchanged and still greppable: a real fallback is a defect and phase 60 is right to see it.
