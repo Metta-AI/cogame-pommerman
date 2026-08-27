@@ -257,11 +257,24 @@ suite "pommerman replay":
     var state = initEpisodeState()
     var writer = openReplayWriter("", config.configJson())
     var engine = scriptedEngine(config)
+    ## EVERY capped field, not just the two big ones: the policy label
+    ## (MaxPolicyLabelRunes), the fallback detail (MaxFallbackDetailRunes) and
+    ## the stop detail (MaxStopDetailRunes) are filled with 4-byte emoji too,
+    ## so each cap's cut is exercised on a codepoint boundary the strict
+    ## Python decode in replay_summary.py would refuse if it landed mid-rune.
+    var policy = ""
+    for _ in 0 ..< 200:
+      policy.add("\u{1F9E8}")
+    var detail = ""
+    for _ in 0 ..< 500:
+      detail.add("\u{1F4A5}")
     for seat in 0 ..< SeatCount:
       sim.admitSeat(seat, "")
       writer.writeJoin(0, seat, seatAliasOf(seat), "")
       writer.writeChat(0, seat, registerRecord(
-        seat, "pommerman-firestarter", "llm", "sapper"))
+        seat, policy, "llm", "sapper"))
+      writer.writeChat(0, seat, fallbackRecord(
+        0, seat, 1, "transport_error", detail))
     discard state.maybeStartFirstGame(sim, writer)
     var say = ""
     for _ in 0 ..< 400:
@@ -288,6 +301,8 @@ suite "pommerman replay":
       discard state.advanceEpisodeFrame(sim, writer)
       discard state.maybeNextGame(sim, writer)
       inc state.frame
+    ## the last capped field: the stop detail, which rides the result record
+    sim.stopDetail = sanitizeLine(detail, MaxStopDetailRunes)
     state.finishEpisode(sim, writer)
     let path = getTempDir() / "pom-summary-fixture.replay"
     writeFile(path, writer.bytes())
@@ -316,6 +331,15 @@ suite "pommerman replay":
       check directive["say"].getStr().runeLen == MaxSayRunes
     for order in summary["orders"]:
       check order["source"].getStr() == "llm"
+    ## the other three caps, read back out of the Python view of the bytes
+    check summary["registrations"].len == SeatCount
+    for registration in summary["registrations"]:
+      check registration["policy"].getStr().validateUtf8() == -1
+      check registration["policy"].getStr().runeLen == MaxPolicyLabelRunes
+    check summary["fallbacks"].getInt() >= SeatCount
+    check summary["results"]["stopDetail"].getStr().validateUtf8() == -1
+    check summary["results"]["stopDetail"].getStr().runeLen ==
+      MaxStopDetailRunes
     check summary["results"]["reason"].getStr() in
       [ReasonComplete, ReasonDeadline]
     removeFile(path)
