@@ -1,0 +1,3 @@
+# cogame-pommerman
+
+bootstrapping
