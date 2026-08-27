@@ -126,6 +126,14 @@ type
     gameOverTicks*: int
     fastMode*: bool
     showPlayerLabels*: bool
+      ## Accepted, pinned false in the default and in all three shipped
+      ## game_configs, and read by NOTHING: no renderer or label path branches
+      ## on it (`grep -rn showPlayerLabels src/ client/`). That is deliberate
+      ## rather than an oversight -- the label vocabulary is aliases only
+      ## (labels.nim), so the one thing this flag could ever turn on is a real
+      ## policy name on the board, which the two-name-spaces rule forbids. It
+      ## stays in the schema so a hosted game_config carrying it still
+      ## validates; it can only ever fail closed.
     model*: string
     maxOutputTokens*: int
     players*: seq[PlayerConfig]
