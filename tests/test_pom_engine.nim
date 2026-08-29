@@ -288,6 +288,14 @@ suite "pommerman engine":
     ## chrome_common's momentum graph reads teams[team].lives, which is the
     ## team's LIVING BOMBER COUNT here
     check packet["teams"]["red"].hasKey("lives")
+    ## `sp` is the number the page compares its speed chips against, so it
+    ## carries the half step as 0.5 rather than rounding it into 1x
+    check packet["sp"].getFloat() == 1.0
+    var half = initialized.player
+    var halfSim = initialized.sim
+    half.applyCommand(halfSim, "5")
+    check parseJson(buildStateJson(
+      halfSim, half, tracker, newJArray(), false))["sp"].getFloat() == 0.5
     check packet["lead"]["teams"][0].getStr() == "red"
     check packet["roster"].len == SeatCount
     check packet["pm"]["seats"].len == SeatCount

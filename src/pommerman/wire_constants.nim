@@ -8,15 +8,18 @@
 import std/strutils
 import sim_types, replay_runtime
 
-proc jsIntArray(values: openArray[int]): string =
-  result = "["
-  for i, v in values:
-    if i > 0: result.add ","
+proc jsSpeedArray(values: openArray[int]): string =
+  ## The chip row the page renders: the half-speed step (`speedIndex ==
+  ## replay_runtime.HalfSpeedIndex`) first, then the whole-number speeds the
+  ## array indexes.
+  result = "[0.5"
+  for v in values:
+    result.add ","
     result.add $v
   result.add "]"
 
 const WireConstantsJs* =
-  "window.POM_WIRE={speeds:" & jsIntArray(PlaybackSpeeds) &
+  "window.POM_WIRE={speeds:" & jsSpeedArray(PlaybackSpeeds) &
   ",fps:" & $TargetFps &
   ",tickRate:" & $TicksPerSecondBase &
   ",maxSayRunes:" & $MaxSayRunes &

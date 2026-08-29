@@ -62,11 +62,12 @@ const
     ## for `viewer_smoke.mjs --soak 10` to observe real advancement (the ecos
     ## 2026-08-23 scar) and slow enough to read an 8-tick fuse counting down.
   PlaybackSpeeds* = [1, 2, 4, 8]
-    ## The speeds `chrome_common.js` has a chip command for. That file is
-    ## copied BYTE FOR BYTE from the starter and its speed->command map has no
-    ## 0.5 entry, so a half-speed chip would render inert; the design note's
-    ## `[0.5, 1, 2, 4, 8]` is recorded as an errata in
-    ## docs/plans/2026-08-27-pommerman-design.md.
+    ## The whole-number playback speeds, indexed by `ReplayPlayer.speedIndex`.
+    ## The half-speed step below the first entry is index
+    ## `replay_runtime.HalfSpeedIndex` (-1) rather than a `0.5` in this array,
+    ## which stays integral because it is what the tick accumulator counts in;
+    ## `wire_constants` emits the full `[0.5, 1, 2, 4, 8]` chip row the page
+    ## renders.
 
   ReasonComplete* = "complete"
   ReasonDeadline* = "deadline"

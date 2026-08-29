@@ -31,9 +31,16 @@
   var renderMomentum = C.renderMomentum;
   var getSpoilers = C.getSpoilers, setSpoilers = C.setSpoilers;
 
-  // Engine-authoritative wire constants (read via the shared chrome; the
-  // fallback literals for raw file:// opens live in chrome_common.js).
-  var WIRE = C.WIRE, SPEEDS = C.SPEEDS, FPS = C.FPS;
+  // Engine-authoritative wire constants, read from the global THIS fork emits
+  // (tools/gen_wire_constants.nim / src/pommerman/wire_constants.nim). The
+  // shared chrome reads the starter's ctf-named global instead, and it is
+  // copied byte for byte (tests/test_pom_viewer.nim pins its length and hash),
+  // so `C.WIRE` is always the empty object and `C.SPEEDS` always the starter's
+  // [1,2,3,4,8,16] fallback -- two of whose chips send commands this engine
+  // discards. The page reads the real block and owns the chip row below.
+  var WIRE = window.POM_WIRE || {};
+  var SPEEDS = WIRE.speeds || [0.5, 1, 2, 4, 8];
+  var FPS = WIRE.fps || 6;
 
   // ART_BASE, not a root-absolute "/client/...": this page is served from
   // three places and a leading slash is only correct at one of them.
@@ -271,6 +278,7 @@
     ingestLeadSeries(s);
     recordMomentum(s);
     renderTransport(s);
+    renderSpeedChips(s);
     renderScorebug(s);
     renderClockLine(s);
     renderMismatch(s);
@@ -507,7 +515,6 @@
   //  whole-string s: seek command.
   // ============================================================
   function togglePlay() { send(' '); }
-  // (speed chips + their speed->command map live in the shared chrome)
   $('btn-play').addEventListener('click', togglePlay);
   $('btn-restart').addEventListener('click', function () { send(','); });
   $('btn-back').addEventListener('click', function () { send('b'); });
@@ -515,6 +522,36 @@
   $('btn-end').addEventListener('click', function () { send('e'); });
   $('btn-loop').addEventListener('click', function () { send('r'); });
   $('btn-skip').addEventListener('click', function () { send('f'); });
+
+  // ---- speed chips ---------------------------------------------------------
+  // The fork owns this row. The shared chrome builds one too, from its own
+  // speed->command map, but that map is the starter's: it has no 0.5x entry
+  // and it has 3x/16x entries this engine's applyCommand discards. So the
+  // chrome's chips are dropped and rebuilt from POM_WIRE.speeds, one chip per
+  // speed replay_runtime.applyCommand actually maps, and their `on` state is
+  // rendered from the frame's `sp` beside the chrome's own transport render.
+  var SPEED_CMD = { 0.5: '5', 1: '1', 2: '2', 4: '4', 8: '8' };
+  var speedChips = [];
+  (function () {
+    var host = $('speedchips');
+    host.textContent = '';
+    SPEEDS.forEach(function (v) {
+      var cmd = SPEED_CMD[v];
+      if (!cmd) return;
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = v + '\u00d7';
+      b.setAttribute('aria-label', v + 'x speed');
+      b.addEventListener('click', function () { send(cmd); });
+      host.appendChild(b);
+      speedChips.push({ speed: v, el: b });
+    });
+  })();
+  function renderSpeedChips(s) {
+    speedChips.forEach(function (chip) {
+      chip.el.classList.toggle('on', chip.speed === s.sp);
+    });
+  }
 
   // click-to-seek: map x-fraction to a tick and send s:<tick>
   function seekToFraction(s, frac) {
@@ -555,6 +592,8 @@
       }
     }
     else if (k === 'd' && window.PommermanChrome) window.PommermanChrome.toggleDanger();
+    // '1'..'9' are the speed commands ('5' is the 0.5x step); the engine
+    // discards the digits it has no speed for.
     else if (k >= '1' && k <= '9') send(k);
     else if (k === 'Escape') postToShell('esc');
   });

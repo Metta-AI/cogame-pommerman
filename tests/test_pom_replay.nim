@@ -273,6 +273,40 @@ suite "pommerman replay":
     check player.frame == player.startFrame + 1
     check sim.phase != Lobby
 
+  test "the 0.5x step advances one tick every OTHER frame":
+    ## The half-speed chip sends '5', which selects a speedIndex BELOW the
+    ## PlaybackSpeeds range. The frame driver counts HALF ticks, so 1x is one
+    ## sim tick per presentation frame and 0.5x is one every other frame, with
+    ## the accumulator still integral -- a float accumulator would drift the
+    ## tick a replay resumes on.
+    var config = testConfig(maxTicks = 64)
+    let run = runScriptedEpisode(config)
+    var
+      initialized = initReplayRuntime(parseReplayBytes(run.bytes))
+      player = initialized.player
+      sim = initialized.sim
+    check player.playbackSpeed() == 1.0
+    let opened = player.frame
+    for _ in 1 .. 4:
+      player.advanceReplayFrame(sim)
+    check player.frame == opened + 4
+
+    player.applyCommand(sim, "5")
+    check player.speedIndex == HalfSpeedIndex
+    check player.playbackSpeed() == 0.5
+    let half = player.frame
+    var advanced: seq[int]
+    for _ in 1 .. 8:
+      player.advanceReplayFrame(sim)
+      advanced.add(player.frame - half)
+    check advanced == @[0, 1, 1, 2, 2, 3, 3, 4]
+
+    ## and every whole-number chip still selects its own speed
+    for pair in [("1", 1.0), ("2", 2.0), ("4", 4.0), ("8", 8.0)]:
+      player.applyCommand(sim, pair[0])
+      checkpoint(pair[0])
+      check player.playbackSpeed() == pair[1]
+
   test "replay_summary is strict UTF-8 JSON":
     ## Every capped field filled to EXACTLY its cap with 4-byte emoji, then
     ## read back through the stdlib-only Python view of the bytes.

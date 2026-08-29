@@ -1861,11 +1861,17 @@ does, and why.
 
 ### The remaining declared deltas
 
-19. **`PlaybackSpeeds` is `[1, 2, 4, 8]`, without the note's `0.5`.**
-    `client/chrome_common.js` is carried from the starter byte for byte and its speed→command map
-    has no half-speed entry, so a `0.5` chip would render and then do nothing.
-    `sim_types.nim:56`; `wire_constants.nim` emits the array; `replay_runtime.applyCommand` maps
-    `'1','2','4','8'` to indices 0-3.
+19. ~~**`PlaybackSpeeds` is `[1, 2, 4, 8]`, without the note's `0.5`.**~~ **Closed.** The chip row is
+    the note's `[0.5, 1, 2, 4, 8]`. `client/chrome_common.js` is still carried from the starter byte
+    for byte, so the fix is not in it: it reads the ctf-named wire global this fork renamed, which
+    means its own chip row was always the starter's `[1, 2, 3, 4, 8, 16]` fallback — no half-speed
+    chip, and `3×`/`16×` chips whose commands `applyCommand` discards. `client/page_script.js` now
+    reads `window.POM_WIRE` directly and builds the row itself, one chip per speed the engine maps.
+    Engine side, `PlaybackSpeeds` stays integral (it is what the tick accumulator indexes) and the
+    half step is `replay_runtime.HalfSpeedIndex == -1`, selected by `'5'`: the frame driver counts
+    HALF ticks, so `0.5×` is one sim tick every other presentation frame with no float in the
+    accumulator. `sim_types.nim`; `wire_constants.nim` prepends the `0.5`; the `sp` field of the
+    state frame is a float so the page can highlight the half chip.
 20. **The art filenames are the pommerman ones.**
     `data/{bomber_red,bomber_blue,bomber_red_crown,bomber_blue_crown,bomb,powerup_range,
     powerup_kick,arena_floor}.png`, with the starter's `soldier_red.png` / `soldier_blue.png` kept
