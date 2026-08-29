@@ -13,13 +13,20 @@ import sim, replays, roster
 const
   TicksPerSecondBase* = TargetFps
     ## Playback rate at speed 1: six sim ticks a second, one tick per 167 ms,
-    ## advanced by an integer accumulator against TargetFps. A 144-tick episode
-    ## therefore plays for 24 s, which comfortably outlasts
+    ## advanced by an integer accumulator of HALF ticks against 2 * TargetFps,
+    ## so the 0.5x step is in range. A 144-tick episode therefore plays for
+    ## 24 s, which comfortably outlasts
     ## `viewer_smoke.mjs --soak 10` (the ecos 2026-08-23 scar), and an 8-tick
     ## fuse reads as 1.3 s -- long enough to watch the countdown.
   LullTicks* = 24
     ## A lull is this many consecutive ticks with no bomb, wood, pickup, kick
     ## or death.
+  HalfSpeedIndex* = -1
+    ## The `speedIndex` that means 0.5x: half a sim tick per presentation
+    ## frame, i.e. one tick every OTHER frame. It is a sentinel below the
+    ## `PlaybackSpeeds` range rather than a `0.5` entry in it because the
+    ## accumulator below counts whole ticks; `speedHalves` is what the two
+    ## representations meet in.
 
 type
   Beat* = object
@@ -58,8 +65,16 @@ type
     sim*: SimServer
     player*: ReplayPlayer
 
-proc playbackSpeed*(player: ReplayPlayer): int =
-  PlaybackSpeeds[clamp(player.speedIndex, 0, PlaybackSpeeds.high)]
+proc speedHalves*(player: ReplayPlayer): int =
+  ## The playback speed in HALF steps -- 1 is 0.5x, 2 is 1x, 4 is 2x -- so the
+  ## frame driver keeps counting in integers with the half step in range.
+  if player.speedIndex <= HalfSpeedIndex: 1
+  else: 2 * PlaybackSpeeds[clamp(player.speedIndex, 0, PlaybackSpeeds.high)]
+
+proc playbackSpeed*(player: ReplayPlayer): float =
+  ## What the chrome shows on its chip row (`sp` in the state frame): 0.5 at
+  ## the half step, otherwise the whole-number speed.
+  player.speedHalves().float / 2.0
 
 proc startFrame*(player: ReplayPlayer): int =
   ## The first game-start frame. Everything before it is the recorded pre-game
@@ -255,6 +270,7 @@ proc applyCommand*(
   of 'e': player.seekTo(sim, player.maxFrame)
   of 'r': player.looping = not player.looping
   of 'f': player.skipLulls = not player.skipLulls
+  of '5': player.speedIndex = HalfSpeedIndex   # the 0.5x chip
   of '1': player.speedIndex = 0
   of '2': player.speedIndex = 1
   of '4': player.speedIndex = 2
@@ -277,10 +293,13 @@ proc advanceReplayFrame*(player: var ReplayPlayer, sim: var SimServer) =
     if player.looping:
       player.seekTo(sim, 0)
     return
-  player.accumulator += player.playbackSpeed() * TicksPerSecondBase
+  # Counted in HALF ticks (see speedHalves) so 0.5x -- half a tick a frame --
+  # is the same integer accumulator as every other speed, one tick every other
+  # frame, rather than a float that would drift the tick a replay resumes on.
+  player.accumulator += player.speedHalves() * TicksPerSecondBase
   var advanced = 0
-  while player.accumulator >= TargetFps and advanced < 8:
-    player.accumulator -= TargetFps
+  while player.accumulator >= 2 * TargetFps and advanced < 8:
+    player.accumulator -= 2 * TargetFps
     if player.frame > player.maxFrame:
       break
     runFrame(player, sim)

@@ -348,6 +348,9 @@ suite "pommerman viewer":
 
   test "the wire constants are emitted from the Nim consts":
     check WireConstantsJs.startsWith("window.POM_WIRE={")
+    ## the chip row, half step first. PlaybackSpeeds stays integral (it is what
+    ## the tick accumulator indexes); 0.5 is HalfSpeedIndex, prepended here.
+    check "speeds:[0.5,1,2,4,8]" in WireConstantsJs
     check ("fps:" & $TargetFps) in WireConstantsJs
     check ("maxSayRunes:" & $MaxSayRunes) in WireConstantsJs
     check ("seats:" & $SeatCount) in WireConstantsJs
@@ -365,6 +368,34 @@ suite "pommerman viewer":
     for label in emittedLabels():
       check label.len <= 12
       check "daveey" notin label
+
+  test "the transport keeps Space and owns the speed chips":
+    ## Two things the shared chrome cannot do for this fork, so both are pinned
+    ## on the page that ships (client/page_script.js IS the served page's
+    ## IIFE -- tools/build_broadcast_page.py splices it in verbatim):
+    ##  - Space pauses. It is the page's own keydown handler, because a keydown
+    ##    does not cross into the iframe an embedding shell puts the board in;
+    ##    an ?embed=1 shell forwards it as a 'cmd' postMessage instead.
+    ##  - the speed chips are built HERE, not by chrome_common. That file is
+    ##    the starter's byte for byte (pinned above), so it reads the ctf-named
+    ##    wire global this fork renamed and falls back to the starter's
+    ##    [1,2,3,4,8,16] map -- a row with no 0.5x chip and with 3x/16x chips
+    ##    whose commands replay_runtime.applyCommand discards.
+    let script = readRepoFile("client/page_script.js")
+    check "if (k === ' ') { ev.preventDefault(); togglePlay(); }" in script
+    check "function togglePlay() { send(' '); }" in script
+    check "if (m.type === 'cmd' && typeof m.cmd === 'string') send(m.cmd);" in script
+    check "var WIRE = window.POM_WIRE || {};" in script
+    check "var SPEEDS = WIRE.speeds || [0.5, 1, 2, 4, 8];" in script
+    check "var SPEED_CMD = { 0.5: '5', 1: '1', 2: '2', 4: '4', 8: '8' };" in script
+    check "renderSpeedChips(s);" in script
+    ## and the served page carries the same script, byte for byte
+    let page = pageText()
+    for line in ["if (k === ' ') { ev.preventDefault(); togglePlay(); }",
+                 "var SPEED_CMD = { 0.5: '5', 1: '1', 2: '2', 4: '4', 8: '8' };",
+                 "renderSpeedChips(s);"]:
+      checkpoint(line)
+      check line in page
 
   test "the ctf rename sweep is complete":
     ## The fork is a rename sweep (`ctf` -> `pommerman`, `CTF_WIRE` ->
