@@ -46,3 +46,17 @@ bridge path, manifest path, and variant ID as the command. Use `players=4`, a
 timestep limit, and `max_decisions=144` to allow a full `teams` game. The
 bridge's `semantic_view` and `messages` also expose the seat-visible contract
 to collectors outside the game server.
+
+## Local reinforcement learning proof
+
+Metta RL completed 512 timesteps per variant through this bridge. Native
+PufferLib trained 4,096 CUDA timesteps per variant, then reloaded each
+checkpoint for four games on each held-out seed 101 and 102:
+
+| Variant | Seed 101 score / performance | Seed 102 score / performance | Checkpoint SHA-256 |
+| --- | --- | --- | --- |
+| teams | -7.5 / 0.333333 | -4.0 / 0.5 | `09a5306085c3e6322812f0ecf9da9f1a6df3cbb6c551d03a459a564328cd31ee` |
+| blitz | -14.6 / 0.433333 | 21.4 / 0.566667 | `291108030f6ce16fe6a56aabf8b57fb892b8be0de42b223a0933021ccf3a7a54` |
+
+These short pilots verify training, checkpoint reload, and evaluation. They do
+not establish a competitive policy.
