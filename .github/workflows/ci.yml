@@ -149,6 +149,15 @@ jobs:
           done
           exit "${fail}"
 
+      - name: Train from complete native episodes
+        run: |
+          nim c -d:release --path:src -o:/tmp/pommerman-train-bridge tools/train_bridge.nim
+          nim c -d:release --path:src -o:/tmp/pommerman-posttrain tools/export_posttrain.nim
+          python3 tools/test_training.py /tmp/pommerman-train-bridge
+          for variant in teams blitz; do
+            /tmp/pommerman-posttrain "/tmp/pommerman-${variant}-posttrain" 10 "$variant"
+          done
+
       - name: The shipped baseline pick is still the swept pick
         # The design note says CI re-runs the tuning harness. It does: the same
         # head-to-head grid the pick came from, asserting
