@@ -62,6 +62,7 @@ from a trap with no exit.
 
 Full rules: [`docs/RULES.md`](docs/RULES.md). The radio: [`docs/RADIO.md`](docs/RADIO.md).
 The wire contract: [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+Training from complete native games: [`TRAINING.md`](TRAINING.md).
 
 ## Two name spaces
 
