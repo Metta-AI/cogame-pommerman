@@ -31,9 +31,8 @@ canvas: booting</div></div>
 /*
  * The worst-case TEXT fixture.
  *
- * tools/ci/docker_smoke.sh runs with NO ANTHROPIC_API_KEY, so every seat in the
- * CI replay plays the scripted baseline and a scripted seat emits no `say` at
- * all -- the smoke replay can never exercise the feed's text path
+ * tools/ci/docker_smoke.sh uses the normal scripted roster, whose seats emit
+ * no `say` at all -- the smoke replay cannot exercise the feed's text path
  * (cogchemists, 2026-08-24). This page therefore LOADS THE SHIPPED
  * dist/static-replay-viewer/index.html in an iframe, waits for its own
  * data-replay-loaded, and then drives THAT PAGE'S OWN feed and scorebug with a

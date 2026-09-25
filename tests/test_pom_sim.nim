@@ -448,7 +448,7 @@ suite "pommerman sim":
     ## still sends a pair.
     var rng = initRand(31337)
     var sim = playingSim()
-    var engine = initDecisionEngine(sim.config)
+    var engine = initDecisionEngine()
     var sent: array[SeatCount, RadioPair]
     for turn in 1 .. 500:
       sim.mailbox.deliver()
@@ -466,7 +466,7 @@ suite "pommerman sim":
         sim.applyOrders(seat, directive)
       ## the observation NEVER carries a cross-team pair
       for seat in 0 ..< SeatCount:
-        let view = engine.seatView(sim, seat, includeNotes = false)
+        let view = seatView(sim, seat)
         let incoming = view["radio_from_teammate"]
         if incoming.kind != JNull:
           check incoming[0].getInt() == sim.mailbox.delivered[seat].a

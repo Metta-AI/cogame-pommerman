@@ -42,7 +42,7 @@ suite "pommerman labels":
     ## seat's OWN partner's name, which is what makes the radio a real
     ## coordination problem rather than a pre-agreed protocol.
     var config = testConfig()
-    var engine = initDecisionEngine(config)
+    var engine = initDecisionEngine()
     var sim = initSimServer(config)
     sim.seatNames[0] = "daveey"
     sim.seatNames[1] = "daveey-1"
@@ -50,7 +50,7 @@ suite "pommerman labels":
     sim.seatNames[3] = "Baseline (2)"
     sim.applyGameStart(0)
     for seat in 0 ..< SeatCount:
-      let view = $engine.seatView(sim, seat, includeNotes = true)
+      let view = $seatView(sim, seat, engine.notes[seat], includeNotes = true)
       checkpoint("seat " & $seat)
       check "daveey" notin view
       check "Baseline" notin view

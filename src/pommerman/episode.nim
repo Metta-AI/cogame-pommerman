@@ -96,7 +96,8 @@ proc maybeStartFirstGame*(
 
 proc runTurnIfDue*(
   state: var EpisodeState, sim: var SimServer, engine: var DecisionEngine,
-  writer: var ReplayWriter, elapsedSeconds: int
+  writer: var ReplayWriter, elapsedSeconds: int,
+  exchange: ActionExchange = nil
 ) =
   ## One command turn every `turnTicks`, at most once per turn, issued
   ## immediately BEFORE the tick it governs.
@@ -107,7 +108,7 @@ proc runTurnIfDue*(
     return
   state.lastTurnKey = turnIndex
   sim.emitEvent(TurnStart, amount = turnIndex)
-  state.turnRecords = engine.turn(sim, turnIndex, elapsedSeconds)
+  state.turnRecords = engine.turn(sim, turnIndex, elapsedSeconds, exchange)
   inc sim.turnsPlayed
   for record in state.turnRecords:
     writer.writeChat(state.frame, 0, record)
@@ -172,7 +173,8 @@ proc maybeNextGame*(
 
 proc runEpisodeFrame*(
   state: var EpisodeState, sim: var SimServer, engine: var DecisionEngine,
-  writer: var ReplayWriter, elapsedSeconds: int
+  writer: var ReplayWriter, elapsedSeconds: int,
+  exchange: ActionExchange = nil
 ): EpisodeFrame =
   ## The whole frame, in the order the design pins.
   if state.maybeStop(sim, writer, elapsedSeconds):
@@ -181,7 +183,7 @@ proc runEpisodeFrame*(
   state.turnRecords = @[]
   state.frameChats = @[]
   if not state.finished:
-    state.runTurnIfDue(sim, engine, writer, elapsedSeconds)
+    state.runTurnIfDue(sim, engine, writer, elapsedSeconds, exchange)
     result.faulted = not state.advanceEpisodeFrame(sim, writer)
     result.finishedGame = state.maybeNextGame(sim, writer)
   result.records = state.frameChats

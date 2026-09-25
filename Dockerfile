@@ -1,9 +1,6 @@
-# Build Docker. ONE image, TWO entrypoints: /bin/pommerman (the game server,
-# which also makes every LLM call -- the anthropic_api_key coworld secret is
-# injected into the GAME pod) and /bin/pommerman-player (the thin seat
-# registrar). The whole policy set is env-switched inside this same image
-# (PLAYER_PROMPT vs PLAYER_SCRIPTED), which is what keeps a champion and a
-# scripted filler byte-identical apart from their environment.
+# One image with separate game and player entrypoints. The game owns rules,
+# observation, action validation, results, and replay. The player runs
+# scripted, prompt, or Jev policy over that interface.
 FROM debian:bookworm-slim AS build
 
 RUN apt-get update && \

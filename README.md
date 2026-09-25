@@ -16,12 +16,12 @@ sees a pair, at any delay.
 
 Watch: **https://softmax.com/pommerman**
 
-## A policy is just a prompt
+## Player policies
 
-There is one image with two entrypoints and the whole policy set is switched by environment:
+One image has separate game and player entrypoints. The player chooses its policy from environment:
 
 ```bash
-# an LLM seat -- the strategy IS the policy
+# a prompt seat
 coworld upload-policy coworld-pommerman:latest --name my-bomber \
   --run /bin/pommerman-player \
   --secret-env PLAYER_PROMPT="Break wood until you have range 3, then hunt."
@@ -30,12 +30,17 @@ coworld upload-policy coworld-pommerman:latest --name my-bomber \
 coworld upload-policy coworld-pommerman:latest --name my-filler \
   --run /bin/pommerman-player \
   --secret-env PLAYER_SCRIPTED=sapper
+
+# a Jev seat; supply player-scoped inference credentials or sidecar access
+coworld upload-policy coworld-pommerman:latest --name my-jev \
+  --run /bin/pommerman-player \
+  --secret-env PLAYER_JEV=1
 ```
 
-The player container is deliberately thin: it registers its seat and then only acknowledges
-frames. **Every decision happens in the game server**, because that is the only container the
-platform injects the `anthropic_api_key` coworld secret into, and because keeping the control
-layer server-side is what makes the recorded order log reproducible with no network in the loop.
+Each player receives its private observation and returns an ordinary order,
+private radio, public narration, and private notes. The game sends all four
+observations together, validates actions, and owns the fallback, results, and
+replay. Model credentials stay in the player container.
 
 ## What a seat sees, and what it says
 
@@ -106,7 +111,7 @@ python3 tools/replay_summary.py /tmp/ep.replay | jq -r '.protocol, .results.reas
 
 | Path | What it is |
 |---|---|
-| `src/pommerman/` | the sim (`board`, `bombs`, `radio`, `sim`), the mummy server, the commander layer (`decide`, `directives`, `llm`, `baselines`, `control`), the replay codec and the broadcast layer |
+| `src/pommerman/` | the sim, game observation and action exchange, player policies, replay codec, and broadcast layer |
 | `src/pommerman.nim`, `src/pommerman_player.nim` | the two entrypoints of the one image |
 | `client/` | the broadcast chrome: `chrome_common.js` byte-for-byte from coworld-ctf, the forked `broadcast_core.js`, and `replay_broadcast.html` built by `tools/build_broadcast_page.py` |
 | `replay-viewer/` | the wasm entry, its emscripten link flags and the OffscreenCanvas Worker shell — all four from ONE starter, coworld-ctf |

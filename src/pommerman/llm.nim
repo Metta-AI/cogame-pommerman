@@ -1,24 +1,5 @@
-## Claude-backed bomber command. A policy is just a prompt: the game server
-## composes the seat's decoded board plus that seat's PLAYER_PROMPT and asks
-## Claude what its bomber does for the next four ticks and what two integers it
-## sends its partner.
-##
-## Forked from `coworld-ctf/src/ctf/llm.nim` behaviour for behaviour -- the
-## credential ladder, the Bedrock model choice, the fence-tolerant JSON
-## extraction and the rune-boundary truncation are all that file's, because
-## they are all scar tissue from real hosted failures.
-##
-## pommerman is a SIMULTANEOUS-decision game, so ALL FOUR seats' calls go out as
-## ONE parallel batch per turn (`curly.makeRequests`). Seats are never queried
-## sequentially: that is what keeps 36 turns inside the wall clock.
-##
-## Credentials, in order of preference:
-##   Bedrock sidecar (AWS_ENDPOINT_URL_BEDROCK_RUNTIME + AWS_BEARER_TOKEN_BEDROCK)
-##   ANTHROPIC_API_KEY
-##   ANTHROPIC_API_KEY_URI
-## With none of them the client disables itself and every turn falls back to
-## the scripted layer INSTANTLY, with no network wait -- which is what lets
-## offline certification finish in seconds.
+## Claude transport and prompt text for the player container.
+## The game server does not import this module or receive its credential.
 
 import std/[json, os, strutils]
 import bitworld/runtime
@@ -90,11 +71,11 @@ proc bedrockUrl(client: LlmClient): string =
   client.bedrockEndpoint & "/model/" &
     client.bedrockModels[client.bedrockModel] & "/invoke"
 
-proc newLlmClient*(config: GameConfig): LlmClient =
+proc newLlmClient*(): LlmClient =
   result = LlmClient(
-    model: (if config.model.len > 0: config.model
-            else: "claude-haiku-4-5-20251001"),
-    maxOutputTokens: max(1, config.maxOutputTokens)
+    model: getEnv("PLAYER_MODEL", "claude-haiku-4-5-20251001"),
+    maxOutputTokens: max(1, min(8192,
+      getEnv("PLAYER_MAX_OUTPUT_TOKENS", "900").parseInt()))
   )
   let
     bedrockEndpoint = getEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME").strip()
@@ -260,5 +241,5 @@ proc operatorBlock*(prompt: string): string =
 
 proc userMessage*(operatorPrompt: string, viewJson: string): string =
   ## The user message: the operator's guidance, a blank line, then the seat's
-  ## own observation. Built server-side (see decide.nim).
+  ## own observation. Built in the player container.
   operatorBlock(operatorPrompt) & viewJson

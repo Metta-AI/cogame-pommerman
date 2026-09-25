@@ -22,17 +22,12 @@ proc defaultGameConfig*(): GameConfig =
     collapseTicks: @[96, 120],
     dodgeHorizon: 8,
     turnBudgetMs: 18000,
-    turnSpacingMs: 10000,
-    attempt1Ms: 12000,
-    retryMs: 5000,
     wallClockBudgetSeconds: 640,
     lobbyJoinTimeoutTicks: 2400,
     startWaitTicks: 24,
     gameOverTicks: 90,
     fastMode: true,
     showPlayerLabels: false,
-    model: "claude-haiku-4-5-20251001",
-    maxOutputTokens: 900,
     players: @[],
     slots: @[],
     tokens: @[]
@@ -63,17 +58,11 @@ proc clampConfig*(config: var GameConfig) =
     rings.add(max(1, min(config.maxTicks, at)))
   config.collapseTicks = rings
   config.turnBudgetMs = max(0, min(60000, config.turnBudgetMs))
-  config.turnSpacingMs = max(0, min(60000, config.turnSpacingMs))
-  # curly floors CURLOPT_TIMEOUT to whole SECONDS, so a sub-second deadline
-  # would silently become zero. Both attempt deadlines are floored at 1000 ms.
-  config.attempt1Ms = max(1000, min(30000, config.attempt1Ms))
-  config.retryMs = max(1000, min(30000, config.retryMs))
   config.wallClockBudgetSeconds =
     max(10, min(640, config.wallClockBudgetSeconds))
   config.lobbyJoinTimeoutTicks = max(1, config.lobbyJoinTimeoutTicks)
   config.startWaitTicks = max(0, min(600, config.startWaitTicks))
   config.gameOverTicks = max(0, min(600, config.gameOverTicks))
-  config.maxOutputTokens = max(1, min(8192, config.maxOutputTokens))
 
 proc getIntOr(node: JsonNode, key: string, fallback: int): int =
   let value = node{key}
@@ -122,9 +111,6 @@ proc update*(config: var GameConfig, text: string) =
   config.maxBlast = node.getIntOr("maxBlast", config.maxBlast)
   config.dodgeHorizon = node.getIntOr("dodgeHorizon", config.dodgeHorizon)
   config.turnBudgetMs = node.getIntOr("turnBudgetMs", config.turnBudgetMs)
-  config.turnSpacingMs = node.getIntOr("turnSpacingMs", config.turnSpacingMs)
-  config.attempt1Ms = node.getIntOr("attempt1Ms", config.attempt1Ms)
-  config.retryMs = node.getIntOr("retryMs", config.retryMs)
   config.wallClockBudgetSeconds =
     node.getIntOr("wallClockBudgetSeconds", config.wallClockBudgetSeconds)
   config.lobbyJoinTimeoutTicks =
@@ -134,10 +120,6 @@ proc update*(config: var GameConfig, text: string) =
   config.fastMode = node.getBoolOr("fastMode", config.fastMode)
   config.showPlayerLabels =
     node.getBoolOr("showPlayerLabels", config.showPlayerLabels)
-  config.maxOutputTokens =
-    node.getIntOr("maxOutputTokens", config.maxOutputTokens)
-  if not node{"model"}.isNil and node{"model"}.kind == JString:
-    config.model = node{"model"}.getStr()
   if not node{"collapseTicks"}.isNil and node{"collapseTicks"}.kind == JArray:
     config.collapseTicks = @[]
     for entry in node{"collapseTicks"}:
@@ -208,9 +190,6 @@ proc configJson*(config: GameConfig): string =
     "collapseTicks": collapse,
     "dodgeHorizon": config.dodgeHorizon,
     "turnBudgetMs": config.turnBudgetMs,
-    "turnSpacingMs": config.turnSpacingMs,
-    "attempt1Ms": config.attempt1Ms,
-    "retryMs": config.retryMs,
     "wallClockBudgetSeconds": config.wallClockBudgetSeconds,
     "lobbyJoinTimeoutTicks": config.lobbyJoinTimeoutTicks,
     "startWaitTicks": config.startWaitTicks,

@@ -29,7 +29,6 @@ proc paramsConfig(seed, maxTicks: int): GameConfig =
   result.maxTicks = maxTicks
   result.maxGames = 1
   result.turnTicks = 4
-  result.turnSpacingMs = 0
   result.gameOverTicks = 1
   result.lobbyJoinTimeoutTicks = 1
   result.startWaitTicks = 0
@@ -46,7 +45,7 @@ proc runPair(
   ## episode. Returns each team's score, which is exactly zero-sum.
   var config = paramsConfig(seed, maxTicks)
   config.dodgeHorizon = params.dodgeHorizon
-  var engine = initDecisionEngine(config)
+  var engine = initDecisionEngine()
   for seat in 0 ..< SeatCount:
     engine.seats[seat].baseline =
       if teamOfSeat(seat) == TeamRed: blSapper else: blCamper

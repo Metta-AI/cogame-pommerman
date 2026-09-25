@@ -1,122 +1,115 @@
 # Protocol
 
-The Coworld contract this game speaks, unchanged in shape from `coworld-ctf`.
+Pommerman uses the Coworld four-seat WebSocket contract. The game owns the
+board, visibility, action validation, simultaneous turn deadline, fallback,
+results, and replay. Each player container owns its policy and credentials.
 
 ## Environment
 
-| Variable | Direction | Meaning |
+| Variable | Container | Meaning |
 |---|---|---|
-| `COGAME_CONFIG_URI` | in | the resolved `game_config` JSON (also accepted inline) |
-| `COGAME_RESULTS_URI` | out | the results document, written once at episode end |
-| `COGAME_SAVE_REPLAY_URI` | out | the binary `COWLDPOM` replay |
-| `COGAME_PLAYER_FAILURE_URI` | out | the platform's **closed** payload, exactly `{"message", "failed_policy_index"}` |
-| `COGAME_EVENTS_URI` | out | the tier-2 JSON-lines analysis stream (`file://` only) |
-| `COGAME_LOAD_REPLAY_URI` | in | local replay mode |
-| `HOST`, `PORT` | in | where to listen (default `0.0.0.0:8080`) |
-| `ANTHROPIC_API_KEY_URI` | in | `secret://coworld/pommerman/anthropic_api_key`, injected into the **game** pod |
-| `COWORLD_PLAYER_WS_URL` | in (player) | the seat socket; legacy alias `COGAMES_ENGINE_WS_URL` |
-| `PLAYER_PROMPT` | in (player) | a strategy in plain English — this seat is an LLM seat |
-| `PLAYER_SCRIPTED` | in (player) | `sapper` \| `camper` — this seat is scripted |
-| `PLAYER_POLICY_LABEL` | in (player) | a free label for the replay's `register` record |
+| `COGAME_CONFIG_URI` | game | Resolved game config JSON |
+| `COGAME_RESULTS_URI` | game | Results document written once |
+| `COGAME_SAVE_REPLAY_URI` | game | Binary `COWLDPOM` replay |
+| `COGAME_PLAYER_FAILURE_URI` | game | Closed player failure payload |
+| `COGAME_EVENTS_URI` | game | Optional JSONL analysis stream |
+| `COGAME_LOAD_REPLAY_URI` | game | Local replay mode |
+| `COGAME_HOST`, `COGAME_PORT` | game | Listen address and port |
+| `COWORLD_PLAYER_WS_URL` | player | Authenticated seat socket |
+| `PLAYER_SCRIPTED` | player | `sapper` or `camper`; defaults to `sapper` |
+| `PLAYER_PROMPT` | player | Claude strategy text; stays in the player |
+| `PLAYER_JEV` | player | Set to `1` for Jev System One |
+| `PLAYER_POLICY_LABEL` | player | Redacted replay registration label |
+| `PLAYER_MODEL_SPACING_MS` | player | Per-player model request floor; default 10000 ms |
+| `ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY_URI` | player | Prompt policy credential |
+| `TYPESAFE_API_KEY` or `METTA_CAPTURE_KEY` | player | Jev credential |
+| `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | player | Sidecar model endpoint |
+
+The game manifest supplies no inference secret. Prompt and Jev players need
+player-scoped credentials or the hosted sidecar. A player without credentials
+sends a scripted action marked `fallback` and `no_credentials`.
 
 ## Routes
 
-| Route | What it is |
+| Route | Purpose |
 |---|---|
-| `GET /healthz` | the runner's liveness probe |
-| `WS /player?slot=<i>&token=<t>` | one seat; token-checked against the roster |
-| `WS /global` | the spectator status feed; the certifier pings it **after** the player pods start |
-| `GET /client/player?slot&token` | a real, token-checked **page**; it must NOT open the player socket |
-| `GET /client/global` | a real page |
-| `GET /client/replay` | the developer-local broadcast page, never declared to the platform |
-| `GET /client/*` | fonts and board art |
-| `GET /replay-data` | the recorded bytes, for local tooling |
+| `GET /healthz` | Runner liveness probe |
+| `WS /player?slot=<i>&token=<t>` | Authenticated seat socket |
+| `WS /global` | Live spectator status |
+| `GET /client/player?slot&token` | Token-checked page, without opening a seat socket |
+| `GET /client/global` | Spectator page |
+| `GET /client/replay` | Local replay page |
+| `GET /replay-data` | Recorded bytes for local tooling |
 
-Both `/client/` routes are registered **before** any catch-all asset route. `/healthz` and
-`/global` keep answering for a bounded 20 s grace after the artifacts are written, then the
-process exits.
+## Seat exchange
 
-## The seat socket
-
-A seat connects, sends **one Sprite v1 chat message** carrying its registration, and then only
-acknowledges frames. Nothing else it sends is applied: bombers speak through `say`, seats do not
-shout.
+A player sends a Sprite v1 chat registration. It contains metadata only:
 
 ```json
-{"policy": "<label>", "prompt": "<PLAYER_PROMPT or empty>", "scripted": "sapper"|"camper"|null}
+{"protocol":"pommerman-player/v2","policy":"my-jev",
+ "kind":"jev","scripted":"sapper"}
 ```
 
-`prompt` is rune-truncated at 4000 runes and `policy` at 48. The registration is **re-sent** for
-the first ~10 s of received frames: joins are slot-sequential, so a first registration can land
-before the seat has an index (the paintball 2026-08-25 scar). Registering twice is harmless.
+`kind` is `scripted`, `prompt`, or `jev`. The prompt and model key never enter
+the registration or replay. The player resends registration during early
+frames because seats join sequentially. The server records only label, kind,
+and fallback baseline.
 
-The server **consumes** the registration — it is never applied as a shout and never written to
-the replay chat stream, because the prompt is a secret. What the replay gets is a **redacted**
-`register` record: the policy label, the kind and the baseline, never the prompt. A seat that
-joins and produces no register record before the lobby closes is **named in a warning line in the
-game log** (the grf-football 2026-08-27 scar), and `results.policyKinds` carries the same fact.
-
-The seat receives one 5-byte binary frame per server frame and replies with the Sprite v1
-player-ready packet (`0x85`). It sends **no inputs at all**: the server computes every bomber's
-action, so the dead-reckoning hazard the Sprite protocol warns about cannot arise and `fastMode`
-can advance as soon as every seat has acknowledged the frame. It **exits 0 on a dead socket** —
-whisky's `receiveMessage` raises on a close frame and mummy's `send` only queues, so the game's
-own `quit(0)` can outrun the flushed frame (the raid 0.1.3 race).
-
-## The decision, and where it happens
-
-**In the game server, not the player container.** The `anthropic_api_key` coworld secret is
-injected into the game pod, phase 60 greps the *game* log for `falling back` /
-`LLM provider is unavailable`, and `docker_smoke.sh` forwards `ANTHROPIC_API_KEY` to the game
-container only. No `USE_BEDROCK` flag is needed on the policies, because the player pod makes no
-LLM call.
-
-Credentials, in order: **Bedrock sidecar** (`AWS_ENDPOINT_URL_BEDROCK_RUNTIME` +
-`AWS_BEARER_TOKEN_BEDROCK`) → `ANTHROPIC_API_KEY` → `ANTHROPIC_API_KEY_URI` → **none**, in which
-case the client disables itself and every turn falls back instantly with no network wait, so
-offline certification finishes in seconds.
-
-All four seats' calls go out as **ONE parallel batch per turn** (`curly.makeRequests`): this is a
-simultaneous-decision game and serial calls would quadruple the wall clock. At most 4 in flight;
-at most `4 × 36 × 2 = 288` an episode including retries.
-
-| Bound | Value |
-|---|---|
-| `attempt1Ms` | 12 000 |
-| `retryMs` | 5 000 |
-| `turnBudgetMs` | 18 000 (a monotonic deadline around the whole turn) |
-| `turnSpacingMs` | 10 000 (a wall-clock floor between batch STARTS → 24 req/min) |
-| `wallClockBudgetSeconds` | 640 (the engine's own hard stop) |
-| budget guard | fires at `elapsed + 2 × turnBudget > 640`, i.e. `elapsed > 604 s` |
-
-## Reply schema
+At each command turn, the game delivers partner radio from the prior turn and
+builds all four seat views from the same board state. It sends each socket a
+JSON text message:
 
 ```json
-{"order": {"verb": "hunt", "target": "BLUE-1"},
- "radio": [3, 7],
- "say": "boxing him against the SE lattice",
- "notes": "3 means 'I am out of ammo'"}
+{"protocol":"pommerman-player/v2","kind":"decision",
+ "turn":7,"deadline_ms":18000,
+ "observation":{"slot":0,"you":"RED-1","board":[],"danger":[],
+ "bombers":[],"bombs":[],"radio_from_teammate":[3,7],
+ "your_last_radio":[1,2],"your_notes":"..."}}
 ```
 
-| Field | Cap / domain |
-|---|---|
-| `order` | one object; an array is accepted and its **first** element used |
-| `order.verb` | ≤ 8 runes; `go`\|`bomb`\|`hunt`\|`break`\|`hide`\|`kick`\|`follow`; unknown → the seat's previous verb |
-| `order.x`, `.y` | required iff `verb == "go"`; clamped into `[0,10]`, then retargeted to the nearest passable cell |
-| `order.target` | required iff `verb == "hunt"`; ≤ 6 runes; a **living enemy** alias; unmatched or dead → the nearest living enemy |
-| `order.dir` | required iff `verb == "kick"`; ≤ 5 runes; `up`\|`down`\|`left`\|`right` |
-| `radio` | exactly 2 integers, each clamped into `[1,8]`; missing or malformed → this seat's previous pair |
-| `say` | ≤ 100 runes — spectator chatter |
-| `notes` | ≤ 200 runes — private, echoed to this seat only next turn |
-| whole reply | ≤ 8192 **bytes** read before parsing |
-| `PLAYER_PROMPT` | ≤ 4000 runes at registration |
-| whole `directive` record | ≤ 900 runes |
+The shown observation is abbreviated. The actual view includes terrain,
+danger, every visible bomb and bomber, collapse timing, score, last order,
+private notes, and only this seat's partner radio. Opposing radio, other
+seats' notes, and policy identities are absent.
 
-Unknown top-level keys are ignored. A reply with a valid `radio` and no `order` is **usable**. A
-reply that is not a JSON object is a parse failure and nothing else is.
+The player replies in a Sprite v1 chat message with one ordinary action:
 
-**Every string that lands in the replay is truncated on RUNE boundaries.** Byte truncation is
-what makes a replay that renders in a browser fail a strict UTF-8 parser.
+```json
+{"protocol":"pommerman-player/v2","kind":"action",
+ "turn":7,"source":"llm","latency_ms":412,
+ "action":{"order":{"verb":"hunt","target":"BLUE-1"},
+ "radio":[3,7],"say":"Closing the lane.",
+ "notes":"Partner sent 3; hold the flank."}}
+```
+
+All four requests are sent before replies are applied. The game accepts a
+reply only for its seat and current turn. One bounded `turnBudgetMs` window
+covers the exchange. If a seat does not answer, the game applies its sapper
+fallback and records the cause. The game validates and repairs fields through
+`parseSeatDirective`; the controller still owns survival overrides. The
+simultaneous order log, private radio, results, and replay remain game-owned.
+
+Orders are `go`, `bomb`, `hunt`, `break`, `hide`, `kick`, or `follow`.
+`go` carries `x` and `y`; `hunt` carries a living enemy alias; `kick` carries
+`up`, `down`, `left`, or `right`. `radio` contains two integers in `[1,8]`.
+`say` is public and capped at 100 runes. `notes` is private, capped at 200
+runes, and returned to the same seat on its next turn. The game repairs an
+invalid field with the existing directive validator.
+
+The player also acknowledges each binary simulation frame with Sprite v1
+ready (`0x85`). `/healthz` and `/global` remain available during the bounded
+shutdown grace. The player handshake is `pommerman-player/v2`. Older registration-only
+players need reupload for this game interface. The binary replay format
+remains `COWLDPOM` version 1.
+
+## Player policies
+
+`PLAYER_SCRIPTED` chooses from the ordinary observation. `PLAYER_PROMPT`
+sends the same observation and an operator prompt to Claude, then returns a
+normal action object. `PLAYER_JEV=1` sends the observation to System One with
+separate choice questions for order, private radio, public `say`, and private
+`notes`. Jev ranks ordinary action candidates; it does not change game rules
+or see hidden state. Prompt and Jev requests are paced inside each player.
 
 ## Results document (closed schema)
 

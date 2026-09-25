@@ -69,7 +69,6 @@ suite "pommerman manifest":
     check certification["players"][1]["player_id"].getStr() == "camper"
     check certification["players"][2]["player_id"].getStr() == "sapper"
     check certification["players"][3]["player_id"].getStr() == "camper"
-    check certification["game_config"]["turnSpacingMs"].getInt() == 0
 
   test "the 0.1.42 upload contract":
     let manifest = manifestJson()
@@ -95,9 +94,8 @@ suite "pommerman manifest":
     ## coworld-release.yml hard-fails certification unless the static bundle
     ## marker comes back.
     check "/client/replay" notin $manifest
-    ## the secret namespace must equal game.name EXACTLY (cooperative-hunting)
-    check manifest["game"]["runnable"]["env"]["ANTHROPIC_API_KEY_URI"].getStr() ==
-      "secret://coworld/" & GameName & "/anthropic_api_key"
+    ## Model credentials belong to player containers.
+    check not manifest["game"]["runnable"].hasKey("env")
     for variant in manifest["variants"]:
       check variant.hasKey("description")
       check variant["description"].getStr().len > 20
@@ -284,7 +282,7 @@ suite "pommerman manifest":
 
   test "the release and submit workflows expose the inputs phase 40 and 50 use":
     let release = readRepoFile(".github/workflows/coworld-release.yml")
-    for input in ["version:", "policies:", "put_secret:", "skip_certify:"]:
+    for input in ["version:", "policies:", "skip_certify:"]:
       check input in release
     check "release-result" in release
     check "\"player\"" in release or "'player'" in release

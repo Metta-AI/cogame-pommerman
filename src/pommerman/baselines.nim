@@ -1,5 +1,5 @@
-## The two scripted baselines, both shipped as fillers. `sapper` is also the
-## server-side fallback -- the decision engine imports THIS proc rather than
+## The original two headless baselines. `sapper` is also the game-owned
+## fallback -- the decision engine imports THIS proc rather than
 ## duplicating it, so the two can never drift
 ## (tests/test_pom_control.nim).
 ##
@@ -244,7 +244,7 @@ proc scriptedDirective*(
 proc fallbackDirective*(
   sim: SimServer, seat: int, params = DefaultBaselineParams
 ): SeatDirective =
-  ## The server-side fallback IS the sapper baseline -- same proc, never a
+  ## The game-owned fallback IS the sapper baseline -- same proc, never a
   ## copy (tests/test_pom_control.nim asserts they agree field for field).
   var directive = sapperDirective(sim, seat, params)
   directive.source = dsFallback

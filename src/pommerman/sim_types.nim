@@ -18,6 +18,7 @@ const
   ReplayMagic* = "COWLDPOM"
   ReplayFormatVersion* = 1'u16
   ProtocolId* = "pommerman/v1"
+  PlayerProtocolId* = "pommerman-player/v2"
 
   MaxSayRunes* = 100
   MaxNoteRunes* = 200
@@ -118,9 +119,6 @@ type
     collapseTicks*: seq[int]
     dodgeHorizon*: int
     turnBudgetMs*: int
-    turnSpacingMs*: int
-    attempt1Ms*: int
-    retryMs*: int
     wallClockBudgetSeconds*: int
     lobbyJoinTimeoutTicks*: int
     startWaitTicks*: int
@@ -135,8 +133,6 @@ type
       ## policy name on the board, which the two-name-spaces rule forbids. It
       ## stays in the schema so a hosted game_config carrying it still
       ## validates; it can only ever fail closed.
-    model*: string
-    maxOutputTokens*: int
     players*: seq[PlayerConfig]
     slots*: seq[SlotConfig]
     tokens*: seq[string]

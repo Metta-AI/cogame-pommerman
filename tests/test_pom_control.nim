@@ -397,11 +397,11 @@ suite "pommerman control and baselines":
     block directiveRecordFitsWithAView:
       ## The observation is far bigger than the cap, so the bounded record must
       ## shed it rather than emit truncated JSON.
-      var engine = initDecisionEngine(sim.config)
+      var engine = initDecisionEngine()
       var withView = previous
       withView.say = "x".repeat(90)
       let record = withView.boundedDirectiveRecord(
-        3, 0, newJNull(), engine.seatView(sim, 0, includeNotes = false))
+        3, 0, newJNull(), seatView(sim, 0))
       check record.runeLen <= MaxDirectiveRunes
       discard parseJson(record)
 
@@ -413,7 +413,7 @@ suite "pommerman control and baselines":
       ## view beside it -- an emptied `say` is a spectator seeing none of what
       ## the model said, and the feed only emits a `say` event when it is
       ## non-empty (broadcast.nim).
-      var engine = initDecisionEngine(sim.config)
+      var engine = initDecisionEngine()
       var say = ""
       for _ in 0 ..< MaxSayRunes:
         say.add("\u{1F525}")
@@ -421,7 +421,7 @@ suite "pommerman control and baselines":
       spoken.source = dsLlm
       spoken.say = sanitizeSay(say)
       check spoken.say.runeLen == MaxSayRunes
-      let view = engine.seatView(sim, 0, includeNotes = false)
+      let view = seatView(sim, 0)
       check view.kind == JObject
       let record = spoken.boundedDirectiveRecord(9, 0, %[3, 7], view)
       check record.runeLen <= MaxDirectiveRunes
@@ -437,7 +437,7 @@ suite "pommerman control and baselines":
       for index in 0 ..< MaxBombs:
         discard crowded.addBomb(3, 9, 9, fuse = 8, blast = crowded.config.maxBlast)
       let crowdedRecord = spoken.boundedDirectiveRecord(
-        9, 0, %[3, 7], engine.seatView(crowded, 0, includeNotes = false))
+        9, 0, %[3, 7], seatView(crowded, 0))
       check crowdedRecord.runeLen <= MaxDirectiveRunes
       let crowdedParsed = parseJson(crowdedRecord)
       check crowdedParsed["say"].getStr().runeLen == MaxSayRunes

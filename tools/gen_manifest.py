@@ -73,8 +73,7 @@ def game_config(**over):
         ("startAmmo", 1), ("maxAmmo", 5),
         ("startBlast", 2), ("maxBlast", 6),
         ("collapseTicks", [96, 120]), ("dodgeHorizon", 8),
-        ("attempt1Ms", 12000), ("retryMs", 5000),
-        ("turnBudgetMs", 18000), ("turnSpacingMs", 10000),
+        ("turnBudgetMs", 18000),
         ("wallClockBudgetSeconds", 640), ("lobbyJoinTimeoutTicks", 2400),
         ("startWaitTicks", 24), ("gameOverTicks", 90),
         ("fastMode", True), ("showPlayerLabels", False),
@@ -130,12 +129,6 @@ config_schema = {
                      "default": 8},
     "turnBudgetMs": {"type": "integer", "minimum": 0, "maximum": 60000,
                      "default": 18000},
-    "attempt1Ms": {"type": "integer", "minimum": 1000, "maximum": 30000,
-                   "default": 12000},
-    "retryMs": {"type": "integer", "minimum": 1000, "maximum": 30000,
-                "default": 5000},
-    "turnSpacingMs": {"type": "integer", "minimum": 0, "maximum": 60000,
-                      "default": 10000},
     "wallClockBudgetSeconds": {"type": "integer",
       "description": "The engine's own hard stop, in seconds. 640 is 53 "
                      "percent of the assumed 1200 s episode timeout, and the "
@@ -150,9 +143,6 @@ config_schema = {
                       "default": 90},
     "fastMode": {"type": "boolean", "default": True},
     "showPlayerLabels": {"type": "boolean", "default": False},
-    "maxOutputTokens": {"type": "integer", "minimum": 1, "maximum": 8192,
-                        "default": 900},
-    "model": {"type": "string"},
   }
 }
 
@@ -243,9 +233,7 @@ manifest = collections.OrderedDict([
     ("replay_viewer", {"bundle": "static-replay-viewer"}),
     ("runnable", {
       "type": "game", "image": "{{POMMERMAN_IMAGE}}",
-      "run": ["/bin/pommerman"],
-      "env": {"ANTHROPIC_API_KEY_URI":
-              "secret://coworld/pommerman/anthropic_api_key"}}),
+      "run": ["/bin/pommerman"]}),
     ("protocols", {
       "player": {"type": "uri", "value": GH + "/blob/main/docs/PROTOCOL.md"},
       "global": {"type": "uri", "value": GH + "/blob/main/docs/PROTOCOL.md"}}),
@@ -263,7 +251,7 @@ manifest = collections.OrderedDict([
   ])),
   ("player", [
     player("sapper", "pommerman-sapper",
-      "The published scripted default and the server-side fallback: bomb an "
+      "The published scripted default and the game-owned fallback: bomb an "
       "enemy in a clear lane, else bomb the wood you are standing beside, else "
       "walk to the nearest power-up, else break toward the middle, and head "
       "inward before the rings close. Sends a real radio pair every turn: ammo "
@@ -296,7 +284,7 @@ manifest = collections.OrderedDict([
   ("certification", {
     "players": [{"player_id": "sapper"}, {"player_id": "camper"},
                 {"player_id": "sapper"}, {"player_id": "camper"}],
-    "game_config": game_config(seed=42, turnSpacingMs=0,
+    "game_config": game_config(seed=42,
                                wallClockBudgetSeconds=240,
                                lobbyJoinTimeoutTicks=600),
   }),

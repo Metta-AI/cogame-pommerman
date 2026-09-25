@@ -20,10 +20,7 @@
       "image": "{{POMMERMAN_IMAGE}}",
       "run": [
         "/bin/pommerman"
-      ],
-      "env": {
-        "ANTHROPIC_API_KEY_URI": "secret://coworld/pommerman/anthropic_api_key"
-      }
+      ]
     },
     "protocols": {
       "player": {
@@ -200,24 +197,6 @@
           "maximum": 60000,
           "default": 18000
         },
-        "attempt1Ms": {
-          "type": "integer",
-          "minimum": 1000,
-          "maximum": 30000,
-          "default": 12000
-        },
-        "retryMs": {
-          "type": "integer",
-          "minimum": 1000,
-          "maximum": 30000,
-          "default": 5000
-        },
-        "turnSpacingMs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 60000,
-          "default": 10000
-        },
         "wallClockBudgetSeconds": {
           "type": "integer",
           "description": "The engine's own hard stop, in seconds. 640 is 53 percent of the assumed 1200 s episode timeout, and the budget guard at elapsed > 604 s means the worst modelled settle is 642 s -- 54 percent, inside the 60 percent target. Never above 640.",
@@ -249,15 +228,6 @@
         "showPlayerLabels": {
           "type": "boolean",
           "default": false
-        },
-        "maxOutputTokens": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8192,
-          "default": 900
-        },
-        "model": {
-          "type": "string"
         }
       }
     },
@@ -513,7 +483,7 @@
       "id": "sapper",
       "type": "player",
       "name": "pommerman-sapper",
-      "description": "The published scripted default and the server-side fallback: bomb an enemy in a clear lane, else bomb the wood you are standing beside, else walk to the nearest power-up, else break toward the middle, and head inward before the rings close. Sends a real radio pair every turn: ammo plus one, and enemies within four cells plus one.",
+      "description": "The published scripted default and the game-owned fallback: bomb an enemy in a clear lane, else bomb the wood you are standing beside, else walk to the nearest power-up, else break toward the middle, and head inward before the rings close. Sends a real radio pair every turn: ammo plus one, and enemies within four cells plus one.",
       "image": "{{POMMERMAN_IMAGE}}",
       "run": [
         "/bin/pommerman-player"
@@ -605,10 +575,7 @@
           120
         ],
         "dodgeHorizon": 8,
-        "attempt1Ms": 12000,
-        "retryMs": 5000,
         "turnBudgetMs": 18000,
-        "turnSpacingMs": 10000,
         "wallClockBudgetSeconds": 640,
         "lobbyJoinTimeoutTicks": 2400,
         "startWaitTicks": 24,
@@ -665,10 +632,7 @@
           80
         ],
         "dodgeHorizon": 8,
-        "attempt1Ms": 12000,
-        "retryMs": 5000,
         "turnBudgetMs": 18000,
-        "turnSpacingMs": 10000,
         "wallClockBudgetSeconds": 640,
         "lobbyJoinTimeoutTicks": 2400,
         "startWaitTicks": 24,
@@ -737,10 +701,7 @@
         120
       ],
       "dodgeHorizon": 8,
-      "attempt1Ms": 12000,
-      "retryMs": 5000,
       "turnBudgetMs": 18000,
-      "turnSpacingMs": 0,
       "wallClockBudgetSeconds": 240,
       "lobbyJoinTimeoutTicks": 600,
       "startWaitTicks": 24,

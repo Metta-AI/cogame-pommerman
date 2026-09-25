@@ -1,26 +1,12 @@
-## The pommerman player container: a policy is just a prompt.
-##
-## This process is DELIBERATELY thin. It connects to its seat, sends ONE
-## Sprite v1 chat message carrying its registration, and then only receives.
-## Every decision happens inside the GAME server, because that is the only
-## container the platform injects the `anthropic_api_key` coworld secret into,
-## and because keeping the control layer server-side is what makes the recorded
-## order log reproducible with no network in the loop.
-##
-##   PLAYER_PROMPT        a strategy in plain English -> this seat is an LLM seat
-##   PLAYER_SCRIPTED      sapper | camper              -> this seat is scripted
-##   PLAYER_POLICY_LABEL  a free label for the replay's `register` record
-##
-## A seat that sets neither is `sapper`. To field your own policy, reuse this
-## image and set PLAYER_PROMPT:
-##
-##   coworld upload-policy <pommerman-image> --name my-pommerman \
-##     --run /bin/pommerman-player --secret-env PLAYER_PROMPT="<strategy>"
+## Pommerman player: scripted, prompt, or Jev over one private seat view.
+## The game receives only metadata and ordinary actions; prompts and model
+## credentials remain in this container.
 
-import std/[json, options, os, strutils]
+import std/[json, monotimes, options, os, strutils, times]
 import bitworld/spriteprotocol
 import whisky
-import pommerman/sim_types
+import pommerman/[sim_types, llm, model_pacing,
+  player_policy, prompt_policy, jev_policy]
 
 const
   ConnectAttempts = 240      ## 240 x 500 ms = 2 minutes of dialling.
@@ -33,26 +19,19 @@ const
 ## the SAME rune-boundary `truncateRunes` the server enforces them with, so
 ## 4000/48 exists once and cannot drift.
 
-proc registrationBlob(prompt, scripted, policy: string): string =
-  ## The one registration message. `scripted` is JSON null when the seat is an
-  ## LLM seat, so the server can tell "no baseline named" from "sapper named
-  ## explicitly".
-  var node = %*{
+proc registrationBlob(kind, scripted, policy: string): string =
+  let node = %*{
+    "protocol": PlayerProtocolId,
     "policy": policy.truncateRunes(MaxPolicyLabelRunes),
-    "prompt": prompt.truncateRunes(MaxPromptRunes)
+    "kind": kind,
+    "scripted": scripted
   }
-  if scripted.len > 0:
-    node["scripted"] = %scripted
-  else:
-    node["scripted"] = newJNull()
   blobFromSpriteChat($node)
 
 proc readyBlob(): string =
   ## The Sprite v1 player-ready packet (0x85). Legitimate here in a way it is
-  ## not for an ordinary player client: this seat sends NO inputs at all (the
-  ## server computes every bomber's action), so the dead-reckoning hazard
-  ## cannot arise, and a fastMode server can advance as soon as every seat has
-  ## acknowledged the frame.
+  ## separate from turn actions, which are sent in Sprite chat messages.
+  ## The game waits for each command turn before advancing its next frame.
   result = newString(1)
   result[0] = char(0x85)
 
@@ -61,18 +40,21 @@ when isMainModule:
   if url.len == 0:
     quit("COWORLD_PLAYER_WS_URL is not set", 1)
   let
-    prompt = getEnv("PLAYER_PROMPT").strip()
-    scripted = getEnv("PLAYER_SCRIPTED").strip()
+    prompt = getEnv("PLAYER_PROMPT").strip().truncateRunes(MaxPromptRunes)
+    scripted = getEnv("PLAYER_SCRIPTED", "sapper").strip()
+    jev = getEnv("PLAYER_JEV") == "1"
+    kind = if jev: "jev" elif prompt.len > 0: "prompt" else: "scripted"
     label = block:
       let explicit = getEnv("PLAYER_POLICY_LABEL").strip()
       if explicit.len > 0: explicit
+      elif jev: "jev"
       elif prompt.len > 0: "prompt"
-      elif scripted.len > 0: scripted
-      else: "sapper"
-  echo "pommerman player: kind=",
-    (if prompt.len > 0: "llm" else: "scripted"),
-    " baseline=", (if scripted.len > 0: scripted else: "sapper"),
-    " label=", label
+      else: scripted
+  var pacer = newModelPacer()
+  let promptClient = if kind == "prompt":
+    newLlmClient() else: nil
+  echo "pommerman player: kind=", kind,
+    " baseline=", scripted, " label=", label
 
   proc dial(attempts: int): WebSocket =
     ## Bounded dialling. The episode runner starts the players at the same
@@ -110,17 +92,58 @@ when isMainModule:
   while true:
     var sessionFrames = 0
     try:
-      socket.send(registrationBlob(prompt, scripted, label), BinaryMessage)
+      socket.send(registrationBlob(kind, scripted, label), BinaryMessage)
       var resends = 0
       while true:
         let received = socket.receiveMessage()
         if received.isNone:
-          continue                    ## a read timeout, not a closed socket
+          continue
+        let packet = received.get()
+        if packet.kind == TextMessage:
+          let request = parseJson(packet.data)
+          if request{"kind"}.getStr() == "decision":
+            doAssert request["protocol"].getStr() == PlayerProtocolId
+            let
+              started = getMonoTime()
+              view = request["observation"]
+              budgetMs = request["deadline_ms"].getInt()
+            var
+              source = "scripted"
+              cause = ""
+              action: JsonNode
+            case kind
+            of "jev":
+              if jevConfigured():
+                action = chooseJevAction(view, pacer, budgetMs)
+                source = "llm"
+              else:
+                action = scriptedAction(view, scripted)
+                source = "fallback"
+                cause = "no_credentials"
+            of "prompt":
+              if promptClient.disabled:
+                action = scriptedAction(view, scripted)
+                source = "fallback"
+                cause = "no_credentials"
+              else:
+                action = choosePromptAction(promptClient, pacer, view,
+                  prompt, budgetMs)
+                source = "llm"
+            else:
+              action = scriptedAction(view, scripted)
+            let reply = %*{
+              "protocol": PlayerProtocolId,
+              "kind": "action", "turn": request["turn"],
+              "action": action, "source": source, "cause": cause,
+              "latency_ms": (getMonoTime() - started).inMilliseconds.int
+            }
+            socket.send(blobFromSpriteChat($reply), BinaryMessage)
+          continue
         inc sessionFrames
         if resends < RegistrationResends and
             sessionFrames mod ResendEveryFrames == 1:
           inc resends
-          socket.send(registrationBlob(prompt, scripted, label), BinaryMessage)
+          socket.send(registrationBlob(kind, scripted, label), BinaryMessage)
         socket.send(readyBlob(), BinaryMessage)
     except CatchableError as error:
       echo "pommerman player: socket closed (", error.msg, ")"
