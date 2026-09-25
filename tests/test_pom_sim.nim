@@ -448,7 +448,7 @@ suite "pommerman sim":
     ## still sends a pair.
     var rng = initRand(31337)
     var sim = playingSim()
-    var engine = initDecisionEngine(sim.config)
+    var engine = initDecisionEngine()
     var sent: array[SeatCount, RadioPair]
     for turn in 1 .. 500:
       sim.mailbox.deliver()

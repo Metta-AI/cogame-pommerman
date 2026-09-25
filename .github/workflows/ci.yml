@@ -457,8 +457,8 @@ jobs:
           node tools/wasm_replay_smoke.cjs \
             dist/static-replay-viewer dist/smoke/episode.replay 200
 
-      # docker_smoke.sh runs with NO ANTHROPIC_API_KEY, so every seat in the CI
-      # replay plays scripted and a scripted seat emits no `say` at all -- the
+      # docker_smoke.sh uses the normal scripted roster, whose policies emit
+      # no `say` at all -- the
       # smoke replay can never exercise the feed's text path (the cogchemists
       # 2026-08-24 scar). The fixture LOADS THE SHIPPED
       # dist/static-replay-viewer/index.html in an iframe and drives the real

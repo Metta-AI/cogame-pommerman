@@ -17,8 +17,8 @@
 ## Both /client routes are registered BEFORE any catch-all asset route (the
 ## lantern 0.1.1 scar).
 ##
-## The serve thread runs independently of the game loop, so a 12 s LLM stall
-## cannot drop a connection or stall /healthz.
+## The serve thread runs independently of the game loop, so a bounded player
+## decision cannot drop a connection or stall /healthz.
 
 import std/[json, locks, monotimes, os, strutils, tables, times]
 import mummy
@@ -101,6 +101,7 @@ type
     seats: Table[WebSocket, SeatSocket]
     globals: Table[WebSocket, bool]
     registrations: Table[WebSocket, string]
+    actions: Table[WebSocket, JsonNode]
     closed: seq[WebSocket]
     config: GameConfig
     replayBytes: string
@@ -118,6 +119,7 @@ proc initAppState(config: GameConfig) =
   appState.seats = initTable[WebSocket, SeatSocket]()
   appState.globals = initTable[WebSocket, bool]()
   appState.registrations = initTable[WebSocket, string]()
+  appState.actions = initTable[WebSocket, JsonNode]()
   appState.closed = @[]
   appState.config = config
   appState.serving = true
@@ -141,13 +143,10 @@ proc respondText(request: Request, status: int, body: string) =
 
 proc parseRegistration(
   text: string
-): tuple[ok: bool, prompt, scripted, policy: string] =
-  ## A seat's Sprite v1 chat message, read as its registration:
-  ##   {"policy":"...","prompt":"...","scripted":"sapper"|"camper"|null}
-  ## Anything that is not that object is not a registration, and any other chat
-  ## text from a seat is DROPPED: bombers speak through `say`, seats do not
-  ## shout.
-  result = (false, "", "", "")
+): tuple[ok: bool, kind, scripted, policy: string, action: JsonNode] =
+  ## Sprite v1 chat carries registration metadata or one turn action.
+  ## Malformed messages are ignored; bombers speak through `say`.
+  result = (false, "", "", "", nil)
   if text.len == 0 or text[0] != '{':
     return
   var node: JsonNode
@@ -157,11 +156,17 @@ proc parseRegistration(
     return
   if node.kind != JObject:
     return
-  if node{"prompt"}.isNil and node{"scripted"}.isNil and
+  if node{"kind"}.getStr() == "action":
+    if node{"protocol"}.getStr() == PlayerProtocolId:
+      result.action = node
+    return
+  if node{"protocol"}.getStr() != PlayerProtocolId:
+    return
+  if node{"kind"}.isNil and node{"scripted"}.isNil and
       node{"policy"}.isNil:
     return
   result.ok = true
-  result.prompt = node{"prompt"}.getStr()
+  result.kind = node{"kind"}.getStr()
   if not node{"scripted"}.isNil and node{"scripted"}.kind == JString:
     result.scripted = node{"scripted"}.getStr()
   result.policy = node{"policy"}.getStr()
@@ -286,7 +291,11 @@ proc websocketHandler(
               appState.seats[websocket].ready = true
             of SpriteClientChatMessage:
               if item.text.len > 0 and item.text[0] == '{':
-                appState.registrations[websocket] = item.text
+                let parsed = parseRegistration(item.text)
+                if not parsed.action.isNil:
+                  appState.actions[websocket] = parsed.action
+                elif parsed.ok:
+                  appState.registrations[websocket] = item.text
             else:
               discard
   of ErrorEvent, CloseEvent:
@@ -311,13 +320,48 @@ proc declarePlayerFailure(slot: int, message: string) =
     echo "player-failure declaration failed: ", error.msg
 
 proc playerFrameBlob(frame: int): string =
-  ## The one binary frame per tick a seat receives. Seats send NO inputs (the
-  ## server computes every action), so this exists only to drive the seat's
-  ## acknowledge-and-resend loop.
+  ## The binary tick frame drives the seat's acknowledge-and-resend loop.
+  ## Turn actions travel in separate decision messages.
   result = newString(5)
   result[0] = char(0x02)
   for i in 0 ..< 4:
     result[i + 1] = char((frame shr (i * 8)) and 0xff)
+
+proc exchangePlayers(
+  turn: int, views: array[SeatCount, JsonNode], deadlineMs: int
+): array[SeatCount, JsonNode] =
+  ## Send every seat its private observation before accepting any action.
+  ## The socket thread fills the reply table while this game thread waits.
+  var sockets: seq[tuple[slot: int, socket: WebSocket]]
+  withLock appState.lock:
+    appState.actions.clear()
+    for socket, seat in appState.seats.pairs:
+      sockets.add((seat.slot, socket))
+
+  var pending: array[SeatCount, bool]
+  for (slot, socket) in sockets:
+    socket.send($(%*{
+      "protocol": PlayerProtocolId,
+      "kind": "decision", "turn": turn,
+      "deadline_ms": deadlineMs, "observation": views[slot]
+    }), TextMessage)
+    pending[slot] = true
+
+  let deadline = getMonoTime() + initDuration(milliseconds = max(0, deadlineMs))
+  while getMonoTime() < deadline:
+    var arrivals: seq[tuple[slot: int, node: JsonNode]]
+    withLock appState.lock:
+      for socket, node in appState.actions.pairs:
+        if socket in appState.seats:
+          arrivals.add((appState.seats[socket].slot, node))
+      appState.actions.clear()
+    for (slot, node) in arrivals:
+      if pending[slot] and node{"turn"}.getInt(-1) == turn:
+        result[slot] = node
+        pending[slot] = false
+    if not (pending[0] or pending[1] or pending[2] or pending[3]):
+      break
+    sleep(1)
 
 proc runServerLoop*(
   host = "0.0.0.0",
@@ -346,7 +390,7 @@ proc runServerLoop*(
 
   var
     sim = initSimServer(config)
-    engine = initDecisionEngine(config)
+    engine = initDecisionEngine()
     writer = openReplayWriter(saveReplayPath, config.configJson())
     tracker = initBroadcastTracker()
   if replayMode:
@@ -399,6 +443,7 @@ proc runServerLoop*(
             appState.seats.del(websocket)
           appState.globals.del(websocket)
           appState.registrations.del(websocket)
+          appState.actions.del(websocket)
         appState.closed.setLen(0)
         for websocket, seat in appState.seats.pairs:
           seatSockets.add(websocket)
@@ -419,8 +464,8 @@ proc runServerLoop*(
 
     # --- registration interception ----------------------------------------
     # A seat's chat is its REGISTRATION: consumed here, never applied as a
-    # shout and never written to the replay chat stream (the prompt is a
-    # secret). What the replay gets is a REDACTED `register` record.
+    # shout and never written to the replay chat stream. What the replay
+    # gets is a REDACTED `register` record.
     for (slot, text) in newRegistrations:
       if slot < 0 or slot >= SeatCount:
         continue
@@ -430,9 +475,7 @@ proc runServerLoop*(
       let firstRegistration = not engine.seats[slot].registered
       engine.seats[slot].registered = true
       sim.registered[slot] = true
-      engine.seats[slot].prompt =
-        registration.prompt.truncateRunes(MaxPromptRunes)
-      engine.seats[slot].isLlm = engine.seats[slot].prompt.len > 0
+      engine.seats[slot].isLlm = registration.kind in ["prompt", "jev"]
       engine.seats[slot].baseline = parseBaseline(registration.scripted)
       engine.seats[slot].label =
         if registration.policy.len > 0: registration.policy
@@ -460,7 +503,8 @@ proc runServerLoop*(
         quitAfterFrame = true
     else:
       let elapsed = (getMonoTime() - episodeStart).inSeconds.int
-      episodeFrame = driver.runEpisodeFrame(sim, engine, writer, elapsed)
+      episodeFrame = driver.runEpisodeFrame(
+        sim, engine, writer, elapsed, exchangePlayers)
       ## The same records the replay reader hands stepEvents in playback. Live,
       ## they come straight off the frame that just wrote them -- without this
       ## the local /global spectator sees no `turn`, `order`, `radio`, `say` or
@@ -519,8 +563,8 @@ proc runServerLoop*(
 
     # --- the frame limiter -------------------------------------------------
     # fastMode: advance as soon as every connected seat has acknowledged the
-    # frame. The seats send no inputs, so the dead-reckoning hazard the
-    # protocol warns about cannot arise.
+    # frame. Turn actions have already been collected by the bounded
+    # exchange, so frame acknowledgements do not advance unseen actions.
     let frameDuration = initDuration(microseconds = 1_000_000 div TargetFps)
     while true:
       let elapsed = getMonoTime() - lastTick

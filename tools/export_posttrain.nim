@@ -29,11 +29,10 @@ when isMainModule:
     var config = defaultGameConfig()
     variantConfig["seed"] = %seed
     config.update($variantConfig)
-    config.turnSpacingMs = 0
     config.gameOverTicks = 1
     config.lobbyJoinTimeoutTicks = 1
     config.startWaitTicks = 0
-    var engine = initDecisionEngine(config)
+    var engine = initDecisionEngine()
     for seat in 0 ..< SeatCount:
       engine.seats[seat].baseline =
         if (seed + seat) mod 2 == 0: blSapper else: blCamper

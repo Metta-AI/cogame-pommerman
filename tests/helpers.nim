@@ -25,7 +25,6 @@ proc testConfig*(maxTicks = 144, seed = 42): GameConfig =
   result.seed = seed
   result.maxTicks = maxTicks
   result.turnTicks = 4
-  result.turnSpacingMs = 0
   result.gameOverTicks = 1
   result.lobbyJoinTimeoutTicks = 1
   result.startWaitTicks = 0
@@ -83,7 +82,7 @@ proc setOrder*(sim: var SimServer, seat: int, kind: OrderKind,
 proc scriptedEngine*(
   config: GameConfig, red = blSapper, blue = blCamper
 ): DecisionEngine =
-  result = initDecisionEngine(config)
+  result = initDecisionEngine()
   for seat in 0 ..< SeatCount:
     let baseline = if teamOfSeat(seat) == TeamRed: red else: blue
     result.seats[seat].baseline = baseline

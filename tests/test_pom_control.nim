@@ -397,7 +397,7 @@ suite "pommerman control and baselines":
     block directiveRecordFitsWithAView:
       ## The observation is far bigger than the cap, so the bounded record must
       ## shed it rather than emit truncated JSON.
-      var engine = initDecisionEngine(sim.config)
+      var engine = initDecisionEngine()
       var withView = previous
       withView.say = "x".repeat(90)
       let record = withView.boundedDirectiveRecord(
@@ -413,7 +413,7 @@ suite "pommerman control and baselines":
       ## view beside it -- an emptied `say` is a spectator seeing none of what
       ## the model said, and the feed only emits a `say` event when it is
       ## non-empty (broadcast.nim).
-      var engine = initDecisionEngine(sim.config)
+      var engine = initDecisionEngine()
       var say = ""
       for _ in 0 ..< MaxSayRunes:
         say.add("\u{1F525}")

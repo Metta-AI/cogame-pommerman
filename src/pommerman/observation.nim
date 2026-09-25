@@ -49,6 +49,7 @@ proc seatView*(
   for row in danger.dangerRows():
     dangerRowsNode.add(%row)
   result = %*{
+    "slot": seat,
     "you": seatAliasName(seat),
     "team": TeamNamesUpper[team],
     "teammate": seatAliasName(partnerOfSeat(seat)),
@@ -74,6 +75,8 @@ proc seatView*(
       "verb": $sim.directives[seat].order.kind,
       "arg": orderArgJson(sim.directives[seat].order)
     },
+    "your_last_radio": [sim.directives[seat].radio.a,
+      sim.directives[seat].radio.b],
     "score_now": sim.teamScore(team)
   }
   if includeNotes:

@@ -12,6 +12,48 @@ proc resultKeys(sim: SimServer): HashSet[string] =
 
 suite "pommerman engine":
 
+  test "four seat views exchange ordinary actions before application":
+    var config = testConfig(maxTicks = 24)
+    var sim = initSimServer(config)
+    var engine = initDecisionEngine()
+    engine.seats[0].isLlm = true
+    for seat in 0 ..< SeatCount:
+      sim.admitSeat(seat, "")
+    sim.applyGameStart(0)
+    var calls = 0
+    let exchange: ActionExchange = proc(
+      turn: int, views: array[SeatCount, JsonNode], deadlineMs: int
+    ): array[SeatCount, JsonNode] =
+      inc calls
+      check deadlineMs == config.turnBudgetMs
+      check views[0]["slot"].getInt() == 0
+      check views[0]["you"].getStr() == "RED-1"
+      if turn == 1:
+        for seat in 0 ..< SeatCount:
+          check views[seat]["radio_from_teammate"].kind == JNull
+      else:
+        check views[0]["your_notes"].getStr() == "private-0"
+        check views[2]["radio_from_teammate"] == %*[1, 8]
+        check views[1]["radio_from_teammate"] != %*[1, 8]
+      for seat in 0 ..< SeatCount - 1:
+        result[seat] = %*{
+          "action": {
+            "order": {"verb": "hide"}, "radio": [seat + 1, 8],
+            "say": "seat " & $seat, "notes": "private-" & $seat
+          },
+          "source": "llm", "latency_ms": 12
+        }
+    let first = engine.turn(sim, 1, 0, exchange)
+    check calls == 1
+    check first.len == 1
+    check sim.directives[0].source == dsLlm
+    check sim.directives[1].source == dsScripted
+    check sim.directives[3].source == dsFallback
+    check sim.directives[0].radio == clampPair(1, 8)
+    check sim.directives[0].say == "seat 0"
+    discard engine.turn(sim, 2, 0, exchange)
+    check calls == 2
+
   test "episode writes artifacts":
     let path = getTempDir() / "pom-engine-episode.replay"
     removeFile(path)
@@ -51,7 +93,6 @@ suite "pommerman engine":
     for variant in manifestJson()["variants"]:
       var config = defaultGameConfig()
       config.update($variant["game_config"])
-      config.turnSpacingMs = 0
       config.gameOverTicks = 1
       config.lobbyJoinTimeoutTicks = 1
       config.startWaitTicks = 0
@@ -110,15 +151,14 @@ suite "pommerman engine":
     check run.sim.fallbackTurns[3] == 0
     check run.sim.llmTurns[3] == 0
 
-  test "an LLM seat with no credentials counts as a fallback, not a score":
-    ## The client disables itself with no credentials, so every turn is a
+  test "a model seat with no player response counts as a fallback, not a score":
+    ## With no external player exchange, every model turn is a
     ## fallback and both are COUNTABLE -- llmTurns 0 with fallbackTurns 0 for
     ## an episode that was nothing but fallbacks is the bug this asserts
     ## against.
     var config = testConfig(maxTicks = 48)
-    var engine = initDecisionEngine(config)
+    var engine = initDecisionEngine()
     engine.seats[0].isLlm = true
-    engine.seats[0].prompt = "win by not dying"
     engine.seats[0].label = "firestarter"
     for seat in 1 ..< SeatCount:
       engine.seats[seat].baseline = blSapper
@@ -136,7 +176,7 @@ suite "pommerman engine":
     ## in `unregistered`, with policyKinds scripted and deadSeats false.
     var config = testConfig(maxTicks = 24)
     var sim = initSimServer(config)
-    var engine = initDecisionEngine(config)
+    var engine = initDecisionEngine()
     var state = initEpisodeState()
     var writer = openReplayWriter("", config.configJson())
     for seat in 0 ..< SeatCount:
@@ -153,9 +193,8 @@ suite "pommerman engine":
     var sim = initSimServer(config)
     sim.collectEvents = true
     sim.applyGameStart(0)
-    var engine = initDecisionEngine(config)
-    engine.seats[0].isLlm = true            ## no credentials: it falls back
-    engine.seats[0].prompt = "hold the centre"
+    var engine = initDecisionEngine()
+    engine.seats[0].isLlm = true            ## no external reply: it falls back
     var state = initEpisodeState()
     var writer = openReplayWriter("", config.configJson())
     for seat in 0 ..< SeatCount:
@@ -184,14 +223,13 @@ suite "pommerman engine":
     var config = testConfig(maxTicks = 48)
     config.wallClockBudgetSeconds = 10
     config.turnBudgetMs = 18000
-    var engine = initDecisionEngine(config)
+    var engine = initDecisionEngine()
     for seat in 0 ..< SeatCount:
       engine.seats[seat].isLlm = true
-      engine.seats[seat].prompt = "hunt"
     var sim = initSimServer(config)
     sim.applyGameStart(0)
     let records = engine.turn(sim, 1, 0)
-    check engine.llmOff
+    check engine.budgetGuardFired
     var sawGuard = false
     for record in records:
       if "\"k\":\"budget_guard\"" in record:
