@@ -1,7 +1,7 @@
 ## Persistent numeric decision bridge for Metta RL and native PufferLib.
 
 import std/[json, os]
-import pommerman/[sim, baselines, decide, directives, llm]
+import pommerman/[sim, baselines, decide, directives, llm, observation]
 
 const
   Variants = ["teams", "blitz"]
@@ -51,7 +51,7 @@ proc teacherAction(directive: SeatDirective, view: JsonNode): JsonNode =
   }
 
 proc decision(engine: DecisionEngine, game: SimServer, seat, id: int): JsonNode =
-  let view = engine.seatView(game, seat, includeNotes = false)
+  let view = seatView(game, seat)
   let catalog = heads(view)
   var fields = newJObject()
   for head in catalog:
@@ -59,7 +59,7 @@ proc decision(engine: DecisionEngine, game: SimServer, seat, id: int): JsonNode 
     for choice in head["choices"]:
       if choice.kind != JNull: legal.add(choice)
     fields[head["name"].getStr()] = %*{"enum": legal}
-  let messageView = engine.seatView(game, seat, includeNotes = true)
+  let messageView = seatView(game, seat, engine.notes[seat], includeNotes = true)
   %*{
     "kind": "decision", "game": "pommerman", "decision_id": id,
     "seat": seat, "engine_seat": seat, "turn": game.turnIndex,
@@ -81,7 +81,7 @@ proc code(value: string, catalog: openArray[string]): int =
 
 proc encoding(engine: DecisionEngine, game: SimServer,
               seat, id: int, variant: string): JsonNode =
-  let view = engine.seatView(game, seat, includeNotes = false)
+  let view = seatView(game, seat)
   var values = newJArray()
   for name in Variants:
     values.add(%(if name == variant: 1 else: 0))
@@ -167,12 +167,12 @@ when isMainModule:
       response = engine.encoding(game, seat, id, variant)
     of "teacher":
       doAssert game.phase == Playing
-      let view = engine.seatView(game, seat, includeNotes = false)
+      let view = seatView(game, seat)
       response = %*{"response": $teacherAction(teacher[seat], view)}
     of "step":
       doAssert game.phase == Playing and request["decision_id"].getInt() == id
       let chosen = parseJson(request["response"].getStr())
-      let view = engine.seatView(game, seat, includeNotes = false)
+      let view = seatView(game, seat)
       for head in heads(view):
         let name = head["name"].getStr()
         doAssert chosen[name] in head["choices"], "action is masked: " & name

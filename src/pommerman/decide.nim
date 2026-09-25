@@ -17,7 +17,7 @@
 
 import std/[json, monotimes, os, strutils, times]
 import curly
-import sim, baselines, llm
+import sim, baselines, llm, observation
 
 type
   SeatPolicy* = object
@@ -55,94 +55,6 @@ proc initDecisionEngine*(config: GameConfig): DecisionEngine =
 proc policyKind*(engine: DecisionEngine, seat: int): string =
   if seat >= 0 and seat < SeatCount and engine.seats[seat].isLlm: "llm"
   else: "scripted"
-
-# ---------------------------------------------------------------------------
-#  The per-seat observation
-# ---------------------------------------------------------------------------
-
-proc radioInJson*(sim: SimServer, seat: int): JsonNode =
-  ## What this seat may read: its OWN partner's pair, exactly one turn late.
-  ## The opposing team's pairs are NEVER in any observation, at any delay --
-  ## `radio.receive` is the only path from a seat index to a pair and it checks
-  ## the team on every call.
-  let inbox = sim.mailbox.receive(teamOfSeat(seat), seat)
-  if not inbox.has:
-    return newJNull()
-  %[inbox.pair.a, inbox.pair.b]
-
-proc seatView*(
-  engine: DecisionEngine, sim: SimServer, seat: int, includeNotes: bool
-): JsonNode =
-  ## Everything this seat may legitimately know. The whole board -- terrain,
-  ## flames, every bomb with its fuse and blast, every dropped power-up, every
-  ## bomber's position, ammo, blast and kick flag -- plus the DECODED danger
-  ## grid. Hidden: the opposing team's radio integers, what lies under unbroken
-  ## wood, every other seat's order/notes/prompt, and every seat's REAL policy
-  ## and player name, including its own partner's.
-  let
-    team = teamOfSeat(seat)
-    danger = sim.dangerNow(9)
-    upcoming = nextCollapse(sim.config, sim.tick)
-  var bombsNode = newJArray()
-  for bomb in sim.bombs:
-    bombsNode.add(%*{
-      "x": bomb.x, "y": bomb.y, "fuse": bomb.fuse, "range": bomb.blast,
-      "owner": seatAliasName(bomb.owner), "moving": $bomb.velocity})
-  var bombersNode = newJArray()
-  for other in 0 ..< SeatCount:
-    ## Always all four, dead ones included, in the fixed alias order, so the
-    ## array shape never changes.
-    bombersNode.add(%*{
-      "id": seatAliasName(other),
-      "x": sim.bombers[other].x,
-      "y": sim.bombers[other].y,
-      "alive": sim.bombers[other].alive,
-      "ammo": sim.bombers[other].ammo,
-      "range": sim.bombers[other].blast,
-      "kick": sim.bombers[other].kick})
-  var enemies = newJArray()
-  for other in 0 ..< SeatCount:
-    if teamOfSeat(other) != team:
-      enemies.add(%seatAliasName(other))
-  var collapsed = newJArray()
-  for ring in 1 .. sim.board.collapsedRings:
-    collapsed.add(%ring)
-  var boardRows = newJArray()
-  for row in sim.board.terrainRows():
-    boardRows.add(%row)
-  var dangerRowsNode = newJArray()
-  for row in danger.dangerRows():
-    dangerRowsNode.add(%row)
-  result = %*{
-    "you": seatAliasName(seat),
-    "team": TeamNamesUpper[team],
-    "teammate": seatAliasName(partnerOfSeat(seat)),
-    "enemies": enemies,
-    "turn": sim.turnIndex,
-    "of": sim.turnsPerGame(),
-    "tick": sim.tick,
-    "ticks_left": max(0, sim.config.maxTicks - sim.tick),
-    "turn_ticks": sim.config.turnTicks,
-    "collapse": {
-      "next_tick": upcoming.tick,
-      "next_ring": upcoming.ring,
-      "collapsed_rings": collapsed
-    },
-    "legend": "# rigid  W wood  . passage  * flame  " &
-      "e extra-bomb  r range  k kick",
-    "board": boardRows,
-    "danger": dangerRowsNode,
-    "bombs": bombsNode,
-    "bombers": bombersNode,
-    "radio_from_teammate": radioInJson(sim, seat),
-    "your_last_order": {
-      "verb": $sim.directives[seat].order.kind,
-      "arg": orderArgJson(sim.directives[seat].order)
-    },
-    "score_now": sim.teamScore(team)
-  }
-  if includeNotes:
-    result["your_notes"] = %engine.notes[seat]
 
 # ---------------------------------------------------------------------------
 #  Records
@@ -224,7 +136,7 @@ proc turn*(
   var open: seq[int]
   for seat in 0 ..< SeatCount:
     engine.lastRadioIn[seat] = radioInJson(sim, seat)
-    engine.lastView[seat] = engine.seatView(sim, seat, includeNotes = false)
+    engine.lastView[seat] = seatView(sim, seat)
     if engine.seats[seat].isLlm and not engine.llmOff and
         not engine.client.disabled:
       open.add(seat)
@@ -285,7 +197,7 @@ proc turn*(
       if attempt == 0: sim.config.attempt1Ms else: sim.config.retryMs
     var batch: RequestBatch
     for seat in open:
-      var view = engine.seatView(sim, seat, includeNotes = true)
+      var view = seatView(sim, seat, engine.notes[seat], includeNotes = true)
       var user = $view
       if attempt > 0:
         user.add("\n\nYour previous reply was not usable. Reply with ONLY " &

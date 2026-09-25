@@ -466,7 +466,7 @@ suite "pommerman sim":
         sim.applyOrders(seat, directive)
       ## the observation NEVER carries a cross-team pair
       for seat in 0 ..< SeatCount:
-        let view = engine.seatView(sim, seat, includeNotes = false)
+        let view = seatView(sim, seat)
         let incoming = view["radio_from_teammate"]
         if incoming.kind != JNull:
           check incoming[0].getInt() == sim.mailbox.delivered[seat].a

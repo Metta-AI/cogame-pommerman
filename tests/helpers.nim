@@ -5,9 +5,9 @@
 ## the source-grep gates and the manifest read depend on.
 
 import std/[json, os, strutils]
-import pommerman/[sim, baselines, decide, episode, replays, roster]
+import pommerman/[sim, baselines, decide, episode, replays, roster, observation]
 
-export sim, baselines, decide, episode, replays, roster
+export sim, baselines, decide, episode, replays, roster, observation, observation
 
 proc repoRoot*(): string =
   ## The repo root, resolved from THIS file rather than from the cwd, so a

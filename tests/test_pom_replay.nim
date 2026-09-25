@@ -355,7 +355,7 @@ suite "pommerman replay":
           writer.writeChat(state.frame, seat,
             directive.boundedDirectiveRecord(
               turnIndex, seat, radioInJson(sim, seat),
-              engine.seatView(sim, seat, includeNotes = false)))
+              seatView(sim, seat)))
       discard state.advanceEpisodeFrame(sim, writer)
       discard state.maybeNextGame(sim, writer)
       inc state.frame
