@@ -1,5 +1,5 @@
 ## Game-owned simultaneous turn exchange, action validation, and fallback.
-## Player containers own scripted, prompt, Jev, or neural policy decisions.
+## Player containers own scripted, prompt, or external policy decisions.
 
 import std/json
 import sim, baselines, observation

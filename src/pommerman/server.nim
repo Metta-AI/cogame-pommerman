@@ -475,7 +475,7 @@ proc runServerLoop*(
       let firstRegistration = not engine.seats[slot].registered
       engine.seats[slot].registered = true
       sim.registered[slot] = true
-      engine.seats[slot].isLlm = registration.kind in ["prompt", "jev"]
+      engine.seats[slot].isLlm = registration.kind in ["prompt", "external"]
       engine.seats[slot].baseline = parseBaseline(registration.scripted)
       engine.seats[slot].label =
         if registration.policy.len > 0: registration.policy
