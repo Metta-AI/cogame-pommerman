@@ -18,14 +18,12 @@ results, and replay. Each player container owns its policy and credentials.
 | `COWORLD_PLAYER_WS_URL` | player | Authenticated seat socket |
 | `PLAYER_SCRIPTED` | player | `sapper` or `camper`; defaults to `sapper` |
 | `PLAYER_PROMPT` | player | Claude strategy text; stays in the player |
-| `PLAYER_JEV` | player | Set to `1` for Jev System One |
 | `PLAYER_POLICY_LABEL` | player | Redacted replay registration label |
 | `PLAYER_MODEL_SPACING_MS` | player | Per-player model request floor; default 10000 ms |
 | `ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY_URI` | player | Prompt policy credential |
-| `TYPESAFE_API_KEY` or `METTA_CAPTURE_KEY` | player | Jev credential |
 | `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | player | Sidecar model endpoint |
 
-The game manifest supplies no inference secret. Prompt and Jev players need
+The game manifest supplies no inference secret. Prompt players need
 player-scoped credentials or the hosted sidecar. A player without credentials
 sends a scripted action marked `fallback` and `no_credentials`.
 
@@ -46,11 +44,11 @@ sends a scripted action marked `fallback` and `no_credentials`.
 A player sends a Sprite v1 chat registration. It contains metadata only:
 
 ```json
-{"protocol":"pommerman-player/v2","policy":"my-jev",
- "kind":"jev","scripted":"sapper"}
+{"protocol":"pommerman-player/v2","policy":"my-policy",
+ "kind":"external","scripted":"sapper"}
 ```
 
-`kind` is `scripted`, `prompt`, or `jev`. The prompt and model key never enter
+`kind` is `scripted`, `prompt`, or `external`. The prompt and model key never enter
 the registration or replay. The player resends registration during early
 frames because seats join sequentially. The server records only label, kind,
 and fallback baseline.
@@ -106,10 +104,9 @@ remains `COWLDPOM` version 1.
 
 `PLAYER_SCRIPTED` chooses from the ordinary observation. `PLAYER_PROMPT`
 sends the same observation and an operator prompt to Claude, then returns a
-normal action object. `PLAYER_JEV=1` sends the observation to System One with
-separate choice questions for order, private radio, public `say`, and private
-`notes`. Jev ranks ordinary action candidates; it does not change game rules
-or see hidden state. Prompt and Jev requests are paced inside each player.
+normal action object. External policies register `kind: "external"` and submit
+complete orders, private radio, narration, and notes over the same seat interface.
+Prompt requests are paced inside each player.
 
 ## Results document (closed schema)
 

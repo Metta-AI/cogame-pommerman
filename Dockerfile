@@ -1,6 +1,6 @@
 # One image with separate game and player entrypoints. The game owns rules,
 # observation, action validation, results, and replay. The player runs
-# scripted, prompt, or Jev policy over that interface.
+# scripted or prompt policy over that interface.
 FROM debian:bookworm-slim AS build
 
 RUN apt-get update && \

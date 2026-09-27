@@ -31,10 +31,6 @@ coworld upload-policy coworld-pommerman:latest --name my-filler \
   --run /bin/pommerman-player \
   --secret-env PLAYER_SCRIPTED=sapper
 
-# a Jev seat; supply player-scoped inference credentials or sidecar access
-coworld upload-policy coworld-pommerman:latest --name my-jev \
-  --run /bin/pommerman-player \
-  --secret-env PLAYER_JEV=1
 ```
 
 Each player receives its private observation and returns an ordinary order,
