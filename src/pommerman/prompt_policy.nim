@@ -11,7 +11,7 @@ proc choosePromptAction*(
   let started = getMonoTime()
   pacer.acquire(budgetMs)
   let remaining = budgetMs - (getMonoTime() - started).inMilliseconds.int
-  let request = client.requestFor(SystemPrompt, userMessage(prompt, $view))
+  let request = client.requestFor(SystemPrompt, userMessage(prompt, $view), -1)
   let response = client.curl.post(request.url, request.headers, request.body,
     max(1, (remaining - 500) div 1000))
   extractJsonObject(client.textOf(response, "", request.url))
