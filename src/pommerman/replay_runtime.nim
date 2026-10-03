@@ -110,6 +110,11 @@ proc runFrame(player: var ReplayPlayer, sim: var SimServer) =
       player.data.gameStarts[player.startCursor].tick == player.frame:
     sim.applyGameStart(player.data.gameStarts[player.startCursor].gameIndex)
     inc player.startCursor
+  if player.orderCursor < player.data.orders.len and
+      player.data.orders[player.orderCursor].tick == player.frame:
+    # Match decide.turn: deliver the previous command's pairs once, before
+    # any seat sends its new pair. This also rebuilds inboxes after a seek.
+    sim.mailbox.deliver()
   while player.orderCursor < player.data.orders.len and
       player.data.orders[player.orderCursor].tick == player.frame:
     let record = player.data.orders[player.orderCursor]
