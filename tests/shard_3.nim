@@ -2,4 +2,5 @@
 {.warning[UnusedImport]: off.}
 import
   test_pom_engine,
-  test_pom_replay
+  test_pom_replay,
+  test_pom_replay_radio
