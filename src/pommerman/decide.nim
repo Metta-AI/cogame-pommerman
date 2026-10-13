@@ -332,6 +332,8 @@ proc turn*(
         if responses[position].error.len > 0:
           cause = (if "timeout" in responses[position].error.toLowerAscii():
                      "timeout" else: "transport_error")
+        elif responses[position].response.code in [401, 403]:
+          cause = "no_credentials"
         elif error.msg.startsWith("llm throttled"):
           cause = "throttled"
         failureCauses[seat] = cause
