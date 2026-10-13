@@ -292,7 +292,7 @@ proc turn*(
           "the JSON object described above, starting with '{', carrying " &
           "\"order\" and \"radio\".")
       let request = engine.client.requestFor(
-        SystemPrompt, userMessage(engine.seats[seat].prompt, user))
+        SystemPrompt, userMessage(engine.seats[seat].prompt, user), seat)
       batch.post(request.url, request.headers, request.body, $seat)
     let started = getMonoTime()
     # curly hands the deadline to CURLOPT_TIMEOUT, whose granularity is WHOLE
