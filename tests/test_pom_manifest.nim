@@ -95,9 +95,8 @@ suite "pommerman manifest":
     ## coworld-release.yml hard-fails certification unless the static bundle
     ## marker comes back.
     check "/client/replay" notin $manifest
-    ## the secret namespace must equal game.name EXACTLY (cooperative-hunting)
-    check manifest["game"]["runnable"]["env"]["ANTHROPIC_API_KEY_URI"].getStr() ==
-      "secret://coworld/" & GameName & "/anthropic_api_key"
+    ## Hosted credentials and endpoint come from the platform sidecar.
+    check manifest["game"]["runnable"]["env"].len == 0
     for variant in manifest["variants"]:
       check variant.hasKey("description")
       check variant["description"].getStr().len > 20
@@ -149,7 +148,7 @@ suite "pommerman manifest":
     check "  pommerman:" in compose
     check "image: coworld-pommerman:latest" in compose
     check "platform: linux/amd64" in compose
-    check "network: host" in compose
+    check "network: host" notin compose
     var services = 0
     for line in compose.splitLines():
       if line.startsWith("  ") and line.endsWith(":") and
@@ -284,12 +283,12 @@ suite "pommerman manifest":
 
   test "the release and submit workflows expose the inputs phase 40 and 50 use":
     let release = readRepoFile(".github/workflows/coworld-release.yml")
-    for input in ["version:", "policies:", "put_secret:", "skip_certify:"]:
+    for input in ["version:", "policies:", "skip_certify:"]:
       check input in release
     check "release-result" in release
     check "\"player\"" in release or "'player'" in release
-    check "--timeout-seconds 300" in release
-    check "Confirm canonical" in release
+    check "--wait-certification" in release
+    check "Read certified canonical status" in release
     let submit = readRepoFile(".github/workflows/coworld-submit.yml")
     for input in ["player_id:", "policy:", "league_id:"]:
       check input in submit

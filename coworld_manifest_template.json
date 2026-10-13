@@ -21,9 +21,7 @@
       "run": [
         "/bin/pommerman"
       ],
-      "env": {
-        "ANTHROPIC_API_KEY_URI": "secret://coworld/pommerman/anthropic_api_key"
-      }
+      "env": {}
     },
     "protocols": {
       "player": {
