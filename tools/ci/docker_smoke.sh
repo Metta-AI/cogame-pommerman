@@ -38,6 +38,7 @@
 #                              job loads it in a real browser -- that is the
 #                              only replay in CI that is known to be readable
 #                              by this game's own viewer.
+#   COWORLD_LLM_ENDPOINT      if set, forwarded to the game for native inference
 #   ANTHROPIC_API_KEY          if set, forwarded to the game so the LLM path
 #                              is exercised; if unset the game must fall back
 #                              to its scripted baselines and still complete
@@ -191,11 +192,14 @@ chmod 777 "${work_dir}"
 docker network create "${network}" >/dev/null
 
 game_env=()
-if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+if [ -n "${COWORLD_LLM_ENDPOINT:-}" ]; then
+  game_env+=(-e "COWORLD_LLM_ENDPOINT=${COWORLD_LLM_ENDPOINT}")
+  echo "COWORLD_LLM_ENDPOINT present: the native LLM path will be exercised"
+elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   game_env+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
   echo "ANTHROPIC_API_KEY present: the LLM path will be exercised"
 else
-  echo "no ANTHROPIC_API_KEY: the game must complete on its scripted baselines"
+  echo "no model endpoint or key: the game must complete on its scripted baselines"
 fi
 
 echo "starting game container (${image} ${game_bin}) ..."
