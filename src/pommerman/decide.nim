@@ -222,11 +222,13 @@ proc turn*(
 
   # --- which seats need a call? --------------------------------------------
   var open: seq[int]
+  var failureCauses: array[SeatCount, string]
   for seat in 0 ..< SeatCount:
     engine.lastRadioIn[seat] = radioInJson(sim, seat)
     engine.lastView[seat] = engine.seatView(sim, seat, includeNotes = false)
     if engine.seats[seat].isLlm and not engine.llmOff and
         not engine.client.disabled:
+      failureCauses[seat] = "no_credentials"
       open.add(seat)
     elif engine.seats[seat].isLlm:
       ## An LLM seat that CANNOT call the LLM this turn is a fallback, not a
@@ -277,6 +279,7 @@ proc turn*(
       break
     if getMonoTime() - turnStart >= budget:
       for seat in open:
+        failureCauses[seat] = "timeout"
         result.add(fallbackRecord(
           turnIndex, seat, attempt + 1, "timeout",
           "per-turn budget exhausted before attempt " & $(attempt + 1)))
@@ -331,6 +334,7 @@ proc turn*(
                      "timeout" else: "transport_error")
         elif error.msg.startsWith("llm throttled"):
           cause = "throttled"
+        failureCauses[seat] = cause
         result.add(fallbackRecord(
           turnIndex, seat, attempt + 1, cause, error.msg))
         ## A failed ATTEMPT is not a fallback, and must not say it is: phase 60
@@ -352,12 +356,7 @@ proc turn*(
   # --- anything still open plays sapper for this turn -----------------------
   for seat in open:
     engine.installFallback(sim, seat)
-    let cause =
-      if engine.client.disabled or engine.client.transport == ltNone:
-        "no_credentials"
-      elif engine.llmOff: "budget_guard"
-      elif engine.client.throttled: "throttled"
-      else: "parse_error"
+    let cause = failureCauses[seat]
     result.add(fallbackRecord(turnIndex, seat, 2, cause,
       "seat fell back to the sapper order"))
     ## "falling back" is the phrase phase 60 greps the GAME log for.
